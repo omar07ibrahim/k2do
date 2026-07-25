@@ -11,7 +11,6 @@ Each round is observable via callbacks for live dashboard display.
 
 from __future__ import annotations
 
-import asyncio
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Awaitable

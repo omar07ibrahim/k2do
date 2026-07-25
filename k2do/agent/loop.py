@@ -6,7 +6,7 @@ import json
 import json_repair
 from pathlib import Path
 import re
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from loguru import logger
 
@@ -24,10 +24,14 @@ from k2do.agent.tools.cron import CronTool
 from k2do.agent.tools.deepthink_tool import DeepThinkTool, RefineTool
 from k2do.agent.memory import MemoryStore
 from k2do.agent.subagent import SubagentManager
-from k2do.agent.router import classify_query, compute_complexity, get_route_label
+from k2do.agent.router import classify_query, compute_complexity
 from k2do.agent.deepthink import DeepThinkEngine, DeepThinkResult
 from k2do.agent.refine import RefinementEngine, RefinementResult
 from k2do.session.manager import Session, SessionManager
+
+if TYPE_CHECKING:
+    from k2do.config.schema import ExecToolConfig
+    from k2do.cron.service import CronService
 
 
 _INLINE_TOOL_CALL_RE = re.compile(
@@ -114,7 +118,6 @@ class AgentLoop:
         on_refine_round: Callable[[int, str, str], None] | None = None,
     ):
         from k2do.config.schema import ExecToolConfig
-        from k2do.cron.service import CronService
         self.bus = bus
         self.provider = provider
         self.workspace = workspace

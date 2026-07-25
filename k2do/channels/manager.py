@@ -7,7 +7,6 @@ from typing import Any
 
 from loguru import logger
 
-from k2do.bus.events import OutboundMessage
 from k2do.bus.queue import MessageBus
 from k2do.channels.base import BaseChannel
 from k2do.config.schema import Config

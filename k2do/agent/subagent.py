@@ -4,7 +4,7 @@ import asyncio
 import json
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -15,6 +15,9 @@ from k2do.agent.tools.registry import ToolRegistry
 from k2do.agent.tools.filesystem import ReadFileTool, WriteFileTool, EditFileTool, ListDirTool
 from k2do.agent.tools.shell import ExecTool
 from k2do.agent.tools.web import WebSearchTool, WebFetchTool
+
+if TYPE_CHECKING:
+    from k2do.config.schema import ExecToolConfig
 
 
 class SubagentManager:

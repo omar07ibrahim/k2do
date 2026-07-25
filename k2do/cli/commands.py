@@ -14,8 +14,6 @@ from rich.text import Text
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
-from rich.layout import Layout
-from rich.columns import Columns
 from rich import box
 
 from prompt_toolkit import PromptSession
@@ -23,7 +21,7 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from k2do import __version__, __logo__, __name_display__
+from k2do import __version__, __logo__
 from k2do.config.schema import Config
 
 app = typer.Typer(
@@ -444,7 +442,7 @@ def gateway(
         console.print("[yellow]No channels enabled[/yellow]")
 
     console.print(f"[green]OK[/green] DeepThink: {'enabled' if config.agents.deepthink.enabled else 'disabled'}")
-    console.print(f"[green]OK[/green] Heartbeat: every 30m")
+    console.print("[green]OK[/green] Heartbeat: every 30m")
 
     async def _health_handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
@@ -600,11 +598,9 @@ def agent(
 
     if message:
         async def run_once():
-            start_t = _time.monotonic()
             with _thinking_ctx():
                 response = await agent_loop.process_direct(message, session_id)
             _finish_overlays()
-            duration = (_time.monotonic() - start_t) * 1000
             _print_agent_response(response, markdown, agent_loop._last_route, agent_loop._last_complexity)
             await agent_loop.close_mcp()
         asyncio.run(run_once())
@@ -661,7 +657,7 @@ def agent(
 
                         # Update dashboard state
                         route = "simple"
-                        from k2do.agent.router import classify_query, compute_complexity
+                        from k2do.agent.router import classify_query
                         if command.startswith("/deepthink"):
                             route = "deepthink"
                         elif command.startswith("/refine"):
