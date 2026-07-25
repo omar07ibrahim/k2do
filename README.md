@@ -1,8 +1,24 @@
-# K2DO -- AI Agent with Multi-Agent DeepThink
+# K2DO — K2-focused multi-agent extension
 
-**K2DO** is an AI agent framework powered by **K2 Think** (LLM360) with a unique **DeepThink** multi-agent reasoning system.
+**K2DO** adapts the MIT-licensed
+[HKUDS/nanobot](https://github.com/HKUDS/nanobot) agent runtime for K2
+Think/Instruct models and adds a DeepThink/refinement path.
 
-## What Makes K2DO Special
+> **Provenance boundary:** this is a modified derivative, not a from-scratch
+> agent framework. The generic message bus, agent/tool shell, persistence,
+> scheduling, provider abstractions, and Telegram integration descend from
+> nanobot. K2-specific routing, parallel thinker/judge orchestration,
+> refinement, fallback guards, and their tests are the project-specific slice.
+> See the exact [provenance and contribution map](docs/provenance.md).
+
+The current public baseline is a hackathon snapshot. Its unit tests cover
+several K2-specific control-flow contracts, but the repository does not yet
+publish a locked environment, offline provider simulator, measured latency or
+quality benchmark, generated architecture evidence, or CI result. Live model
+behavior and the terminal panel below therefore remain setup examples, not
+reproducible portfolio evidence.
+
+## K2DO-specific direction
 
 ### DeepThink: Multi-Agent Parallel Reasoning
 
