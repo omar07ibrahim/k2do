@@ -57,9 +57,20 @@ The initial snapshot adds or materially changes these areas:
   control flow.
 
 These are code-presence statements, not quality or originality claims. Each
-area still requires isolated tests, reproducible traces, and a reviewed diff
-against the reconstructed upstream baseline before it is featured as portfolio
-evidence.
+area still requires a reviewed diff against the reconstructed upstream
+baseline before it is treated as an originality claim.
+
+The deterministic offline lab now supplies narrower behavioral evidence for the
+default query router and a direct `DeepThinkEngine`: selected thinker
+concurrency, thinker model fallback, categorical timeout, Judge gating and
+degradation, caller cancellation, and zero-active cleanup. Its strict scripted
+provider, canonical receipt, source-bound manifest, transcript, and generated
+visuals are documented in [the evidence protocol](evidence.md).
+
+That receipt does not exercise the generic AgentLoop, configuration wiring,
+automatic execution handoff, tools, refinement, memory, live providers,
+gateway, Telegram, or dashboard. Unit tests for some of those paths do not
+expand the receipt's evidence boundary.
 
 ## Removed generated audit dump
 
@@ -68,12 +79,22 @@ nanobot wiki dump. It included host-specific paths, stale upstream descriptions,
 and copied documentation that did not describe K2DO's verified behavior. It was
 removed in favor of this concise, source-linked provenance record.
 
-## Next evidence milestones
+## Evidence milestones
 
-1. Pin a reproducible Python toolchain and add CI.
-2. Add a deterministic fake-provider harness that exercises router,
-   thinker/judge, fallback, cancellation, and tool boundaries without API keys.
-3. Measure only properties the harness can prove: route decisions, call DAG,
-   cancellation behavior, bounded concurrency, and deterministic receipts.
-4. Generate real CLI transcripts and diagrams from that harness.
-5. Maintain an explicit upstream-diff ledger for every retained generic module.
+Completed:
+
+1. A deterministic credential-free provider harness exercises the router and
+   direct thinker/Judge engine.
+2. The canonical receipt measures route decisions, call DAG, model fallback,
+   categorical timeout, cancellation, bounded concurrency, and cleanup.
+3. A real captured transcript and receipt-derived SVGs are bound to committed
+   source blobs and checked by a deterministic renderer.
+
+Remaining:
+
+1. Pin a reproducible Python dependency set and publish CI.
+2. Add source-bound receipts for AgentLoop/config handoff, tool execution, and
+   refinement.
+3. Add an opt-in sanitized live-provider capture without publishing prompts,
+   responses, credentials, endpoints, or personal data.
+4. Maintain an explicit upstream-diff ledger for every retained generic module.

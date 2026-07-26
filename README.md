@@ -1,134 +1,153 @@
-# K2DO — K2-focused multi-agent extension
+# K2DO — evidence-led DeepThink orchestration for K2
 
-**K2DO** adapts the MIT-licensed
-[HKUDS/nanobot](https://github.com/HKUDS/nanobot) agent runtime for K2
-Think/Instruct models and adds a DeepThink/refinement path.
+K2DO adapts the MIT-licensed
+[HKUDS/nanobot](https://github.com/HKUDS/nanobot) runtime for K2 Think/Instruct
+models and adds a K2-specific reasoning control plane: deterministic query
+routing, concurrent role-configured thinker calls, model fallback, bounded
+timeouts, judge synthesis, and cancellation cleanup.
 
-> **Provenance boundary:** this is a modified derivative, not a from-scratch
-> agent framework. The generic message bus, agent/tool shell, persistence,
-> scheduling, provider abstractions, and Telegram integration descend from
-> nanobot. K2-specific routing, parallel thinker/judge orchestration,
-> refinement, fallback guards, and their tests are the project-specific slice.
-> See the exact [provenance and contribution map](docs/provenance.md).
+> [!IMPORTANT]
+> K2DO is a modified derivative, not a from-scratch agent framework. The
+> generic message bus, tool shell, persistence, scheduling, provider
+> abstractions, and Telegram transport descend from nanobot. The contribution
+> boundary is documented in the
+> [provenance and contribution map](docs/provenance.md).
 
-The current public baseline is a hackathon snapshot. Its unit tests cover
-several K2-specific control-flow contracts, but the repository does not yet
-publish a locked environment, offline provider simulator, measured latency or
-quality benchmark, generated architecture evidence, or CI result. Live model
-behavior and the terminal panel below therefore remain setup examples, not
-reproducible portfolio evidence.
+This README starts with the credential-free path that can be checked today.
+Live K2 setup comes later and is deliberately not presented as benchmark
+evidence.
 
-## K2DO-specific direction
+## Run the verified offline path
 
-### DeepThink: Multi-Agent Parallel Reasoning
+The offline lab calls the production `classify_query` function and a direct
+`DeepThinkEngine` instance against a strict scripted provider. It needs no API
+key and does not send model requests.
 
-When a complex question comes in, K2DO doesn't just ask one model — it spawns **multiple AI agents** that think in parallel from different perspectives, then a **Judge** synthesizes the best answer.
-
+```mermaid
+flowchart LR
+    V["Create Python 3.11+ venv"] --> I["Install editable dev environment"]
+    I --> R["Run deterministic trace lab"]
+    R --> C["Check committed evidence bundle"]
 ```
-User Query --> Smart Router
-                |
-                +--> Simple? --> K2-Instruct (fast path)
-                |
-                +--> Complex? --> DeepThink Mode:
-                      |
-                      +--> Analyst (temp=0.3, rigorous logic)
-                      +--> Creative (temp=0.9, innovative ideas)
-                      +--> Pragmatist (temp=0.5, practical focus)
-                      |
-                      +--> Judge --> Synthesized Best Answer
-```
-
-### Smart Router
-
-Automatically detects query complexity using NLP heuristics and routes to the right processing mode:
-- **Simple queries** (greetings, quick facts) go straight to K2-Instruct for speed
-- **Complex queries** (design, analysis, comparison) trigger DeepThink multi-agent mode
-
-### Live DeepThink Visualization
-
-Beautiful terminal UI shows all agents thinking in parallel in real-time:
-
-```
-+--------------------------------------------+
-| DeepThink -- Multi-Agent Reasoning         |
-+--------------------------------------------+
-| Agent      | Status                         |
-|------------|--------------------------------|
-| Analyst    | Thinking...                    |
-| Creative   | Done (1240ms)                  |
-| Pragmatist | Thinking...                    |
-| Judge      | Waiting for all agents...      |
-+--------------------------------------------+
-```
-
-## Quick Start
 
 ```bash
-# Install
-pip install -e .
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e '.[dev]'
 
-# Setup
+python -m k2do.labs.deepthink_trace
+python -m pytest -q tests/test_deepthink_trace_lab.py tests/test_trace_evidence_recorder.py
+python -m k2do.labs.trace_evidence_recorder check
+```
+
+The setup is supported on CPython 3.11 or newer. It is not yet byte-for-byte
+environment reproducible: dependencies have lower bounds and the repository
+has no lockfile. The committed capture records the Python, OS, architecture,
+and K2DO distribution version that produced it.
+
+![Genuine terminal capture of the K2DO offline trace lab](docs/deepthink-trace-evidence/trace-lab.svg)
+
+*Genuine captured stdout rendered from the canonical receipt. The payload
+contains labels, counts, and digests—not prompts, model responses, credentials,
+endpoints, absolute paths, or timing claims. Receipt SHA-256:
+`f66e1db30dd79d77318a20ae86a0aa450a663e8f5cdff351557ca6fd1d0da80d`.*
+
+## Observed orchestration workflow
+
+![Receipt-derived K2DO synthesis call DAG](docs/deepthink-trace-evidence/call-dag.svg)
+
+*Receipt-derived synthesis path through the production router and direct
+`DeepThinkEngine`. The strict synthetic provider forces an Analyst primary
+error and fallback, a Pragmatist timeout/cancellation path, and a Judge call
+after every selected thinker is terminal. This is control-flow evidence, not an
+answer-quality or latency claim.*
+
+The canonical receipt covers these deterministic scenarios:
+
+| Scenario | What was observed |
+| --- | --- |
+| Router contract | The complex architecture fixture routes to `deepthink`; the simple greeting fixture routes to `simple`. |
+| Synthesis path | Three of four configured thinkers are selected; provider-call peak is 3; Analyst primary fails then fallback succeeds; Pragmatist reaches the categorical timeout path; Judge runs after all selected thinkers are terminal; cleanup ends with 0 active calls. |
+| Judge degradation | Provider-call peak is 2; Judge primary and model fallback both error; the engine returns the longest successful synthetic thinker response; cleanup ends with 0 active calls. |
+| Caller cancellation | Three blocked provider calls are cancelled; Judge call count is 0; the root task is cancelled; cleanup ends with 0 active calls and 0 incomplete barriers. |
+
+The word “thinker” here means a concurrent, role-configured call through one
+provider abstraction. The lab does not claim separate autonomous processes or
+independent model backends.
+
+## Measured properties
+
+![Receipt-derived K2DO orchestration properties](docs/deepthink-trace-evidence/orchestration-properties.svg)
+
+*All values are derived from the same receipt. Peaks `3 / 2 / 3` describe the
+three scripted scenarios, not throughput. The Judge-degradation result is the
+longest successful synthetic response, not a measured “best” answer.*
+
+The evidence recorder makes the visuals reviewable rather than decorative:
+
+- it materializes a private snapshot from committed Git blobs and runs that
+  snapshot with `python -I -S -B`;
+- it binds ten capture-relevant committed paths—the lab/engine modules,
+  recorder, package initializers, and project metadata—by Git mode, blob ID,
+  SHA-256, and byte count;
+- it records zero observed communication syscalls in one Linux `strace` run
+  over an explicit syscall set; this is an observation, not network isolation;
+- it checks exact file sets, hashes, media types, JSON structure, explicit
+  forbidden SVG patterns, and the SVG root contract;
+- it deterministically re-renders the transcript and visuals during
+  `trace_evidence_recorder check`.
+
+See the [evidence protocol and boundaries](docs/evidence.md) and the
+[machine-readable manifest](docs/deepthink-trace-evidence/manifest.json).
+
+## Technical decisions
+
+| Concern | Implementation | Evidence boundary |
+| --- | --- | --- |
+| Query routing | Deterministic heuristic score in `k2do/agent/router.py` | Two fixed route decisions are captured; general routing accuracy is not measured. |
+| Parallel work | Selected role configurations run concurrently with `asyncio.gather` | Barrier order and peak active provider calls are captured. |
+| Model fallback | A failed primary call retries once on the configured fallback model | Thinker fallback and double Judge failure are forced by the strict provider. |
+| Time bounds | Thinker and Judge calls are wrapped with `asyncio.wait_for` | A categorical thinker timeout is captured; elapsed time is intentionally excluded. |
+| Cancellation | Caller cancellation propagates through active thinker calls | Cancelled-call counts and zero-active cleanup are captured. |
+| Judge degradation | If Judge execution fails, the longest raw thinker response is selected; a fixed message is used if that selected response is blank | The deterministic successful-response selection is captured; semantic quality is not assessed. |
+| Evidence integrity | Source-bound receipt, deterministic renderer, atomic no-replace publication | Adversarial tests cover dirty or changing sources, artifact tampering/symlinks/extras, hostile output leaves, publish races, output caps, timeout cleanup, and squash-safe verification. |
+
+## What is and is not verified
+
+| Surface | Current evidence |
+| --- | --- |
+| Default `classify_query` behavior for two fixed fixtures | Verified by the offline receipt |
+| Direct `DeepThinkEngine` concurrency, fallback, timeout, Judge degradation, and cancellation | Verified by the offline receipt |
+| Artifact provenance and deterministic rendering | Verified by the committed manifest and checker |
+| AgentLoop automatic handoff and configuration wiring | Covered in parts by unit tests; outside this receipt |
+| Tool execution, refinement, memory, gateway, and Telegram paths | Present in the repository; outside this receipt |
+| Live K2 provider behavior | Not captured |
+| Answer quality, token cost, throughput, or latency | Not benchmarked |
+| Locked dependency environment and CI | Not yet available |
+
+## Optional live K2 setup
+
+This credentialed configuration path can incur provider usage. It is not part
+of the offline evidence above.
+
+```bash
 k2do onboard
-
-# Edit config with your K2 API key
-vim ~/.k2do/config.json
-
-# Chat (auto DeepThink routing)
-k2do agent
-
-# Single message
-k2do agent -m "Compare Python vs Rust for backend development"
-
-# Force DeepThink mode
-k2do agent
-> /deepthink Design a microservices architecture for a social media app
-
-# Start gateway (Telegram)
-k2do gateway
+# Add your key to ~/.k2do/config.json; never commit that file.
+k2do status
+k2do agent -m "Compare two deployment designs and state the trade-offs."
 ```
 
-## Architecture
-
-```
-k2do/
-  agent/
-    loop.py          # Core agent loop with DeepThink integration
-    router.py        # Smart query complexity router
-    deepthink.py     # Multi-agent parallel reasoning engine
-    context.py       # System prompt builder
-    memory.py        # Two-layer memory (MEMORY.md + HISTORY.md)
-    subagent.py      # Background task agents
-    tools/           # File, shell, web, message, spawn, cron
-  providers/
-    registry.py      # K2 Think + K2 Instruct + other providers
-    litellm_provider.py
-  channels/          # Telegram
-  config/            # Pydantic schema + JSON loader
-  cli/               # Typer CLI with Rich UI
-  bus/               # Async message queue
-  session/           # JSONL session persistence
-  cron/              # Scheduled tasks
-  heartbeat/         # Periodic autonomous checks
-```
-
-## K2 Models
-
-| Model | Purpose | Speed |
-|-------|---------|-------|
-| K2-Think-V2 | Deep reasoning, planning, analysis | Slower, thorough |
-| K2-V2-Instruct | Fast responses and lightweight execution | Fast |
-
-## Config Example
+The generated config uses this shape:
 
 ```json
 {
   "providers": {
     "k2Think": {
-      "apiKey": "YOUR_K2_API_KEY",
+      "apiKey": "<K2_API_KEY>",
       "apiBase": "https://build-api.k2think.ai/v1"
     },
     "k2Instruct": {
-      "apiKey": "YOUR_K2_API_KEY",
+      "apiKey": "<K2_API_KEY>",
       "apiBase": "https://build-api.k2think.ai/v1"
     }
   },
@@ -139,29 +158,47 @@ k2do/
     },
     "deepthink": {
       "enabled": true,
-      "complexityThreshold": 0.6,
+      "complexityThreshold": 0.45,
       "maxAgents": 3
     }
   }
 }
 ```
 
-## Commands
+Interactive commands include `/deepthink <query>` and `/refine <query>`.
+`k2do gateway` starts the configured channel gateway. No credentialed output,
+live-provider result, Telegram exchange, or full-screen dashboard image is used
+as portfolio evidence yet.
 
-| Command | Description |
-|---------|-------------|
-| `k2do onboard` | Initialize config and workspace |
-| `k2do agent` | Interactive chat with auto-routing |
-| `k2do agent -m "msg"` | Single message mode |
-| `k2do gateway` | Start multi-channel server |
-| `k2do status` | Show configuration and provider status |
-| `k2do channels status` | Show channel configuration |
-| `k2do cron list` | List scheduled jobs |
+## Repository map
 
-## Built With
+```text
+k2do/
+  agent/
+    router.py                  # deterministic query classification
+    deepthink.py               # thinker concurrency, fallback, Judge, cleanup
+    loop.py                    # generic/adapted runtime integration
+    refine.py                  # three-stage refinement path
+  labs/
+    deepthink_trace.py         # strict offline provider and canonical receipt
+    trace_evidence_recorder.py # source-bound capture and visual renderer
+  cli/                         # Typer/Rich live interface
+  channels/                    # adapted channel integrations
+docs/
+  deepthink-trace-evidence/    # committed receipt, manifest, transcript, SVGs
+  evidence.md                  # verification and maintenance protocol
+  provenance.md                # upstream/contribution boundary
+tests/                         # unit and adversarial evidence tests
+```
 
-- **K2 Think / K2 Instruct** (LLM360) - Primary AI models
-- **LiteLLM** - Universal LLM provider routing
-- **Rich** - Beautiful terminal UI
-- **Typer** - CLI framework
-- **Pydantic** - Configuration management
+The next evidence milestones are a locked dependency set with CI, an
+AgentLoop/config integration receipt, deterministic refinement/tool traces, and
+an opt-in sanitized live-provider capture. They are tracked as remaining work,
+not described as completed features.
+
+## License and attribution
+
+K2DO is distributed under the MIT License. The repository preserves the
+nanobot contributors’ notice; see [LICENSE](LICENSE) and
+[docs/provenance.md](docs/provenance.md) before evaluating or reusing the
+project.
