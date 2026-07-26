@@ -157,16 +157,21 @@ def test_rendered_artifacts_are_receipt_derived_and_safe(
     ):
         assert value in dag
 
-    properties = artifacts["orchestration-properties.svg"].decode()
+    properties = " ".join(ET.fromstring(artifacts["orchestration-properties.svg"]).itertext())
     for value in (
         "Synthesis path",
         "Judge degradation",
         "Caller cancellation",
-        "timeout           pragmatist / categorical_timeout",
-        "provider cancelled true",
-        "cancelled calls   3",
-        "judge calls       0",
-        "active after      0",
+        "THINKER FALLBACK",
+        "primary_error",
+        "-> fallback_success",
+        "pragmatist -> categorical_timeout",
+        "provider_cancelled=true",
+        "longest_successful_thinker",
+        "blocked=3",
+        "cancelled=3",
+        "judge_calls=0",
+        "active_after=0",
     ):
         assert value in properties
 

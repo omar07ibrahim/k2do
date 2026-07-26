@@ -999,12 +999,14 @@ def _render_call_dag_svg(receipt: Mapping[str, Any]) -> bytes:
     positions = {
         "router": (100, 300),
         "thinker.analyst.primary": (320, 100),
-        "thinker.analyst.fallback": (580, 100),
+        "thinker.analyst.fallback": (590, 100),
         "thinker.creative.primary": (320, 300),
         "thinker.pragmatist.primary": (320, 500),
         "judge.primary": (825, 300),
         "result": (1080, 300),
     }
+    node_width = 156
+    node_half_width = node_width // 2
     _require(
         {node["id"] for node in nodes} == set(positions),
         "synthesis_dag_shape_changed",
@@ -1018,19 +1020,30 @@ def _render_call_dag_svg(receipt: Mapping[str, Any]) -> bytes:
         source_x, source_y = positions[source]
         target_x, target_y = positions[target]
         direction = 1 if target_x >= source_x else -1
-        start_x = source_x + 88 * direction
-        end_x = target_x - 88 * direction
+        start_x = source_x + node_half_width * direction
+        end_x = target_x - node_half_width * direction
         mid_x = (start_x + end_x) / 2
         mid_y = (source_y + target_y) / 2
+        relation = str(edge["relation"])
+        label_width = len(relation) * 6 + 10
+        _require(
+            label_width <= abs(end_x - start_x),
+            "dag_edge_label_does_not_fit",
+        )
         edge_markup.append(
             f'    <path d="M {start_x} {source_y} C {mid_x} {source_y}, '
             f'{mid_x} {target_y}, {end_x} {target_y}" fill="none" '
             'stroke="#7dd3fc" stroke-width="2.5" marker-end="url(#arrow)"/>'
         )
         edge_markup.append(
+            f'    <rect x="{mid_x - label_width / 2}" y="{mid_y - 22}" '
+            f'width="{label_width}" height="18" rx="7" fill="#08111f" '
+            'stroke="#334155"/>'
+        )
+        edge_markup.append(
             f'    <text x="{mid_x}" y="{mid_y - 9}" text-anchor="middle" '
-            'class="mono" font-size="12" fill="#94a3b8">'
-            f"{_xml_text(edge['relation'])}</text>"
+            'class="mono" font-size="10" fill="#cbd5e1">'
+            f"{_xml_text(relation)}</text>"
         )
 
     palette = {
@@ -1046,10 +1059,10 @@ def _render_call_dag_svg(receipt: Mapping[str, Any]) -> bytes:
         fill, accent = palette.get(node["outcome"], ("#1e293b", "#e2e8f0"))
         display = node_id.replace("thinker.", "").replace(".", " · ")
         node_markup.append(
-            f"""    <g transform="translate({x - 88} {y - 45})" filter="url(#shadow)">
-      <rect width="176" height="90" rx="14" fill="{fill}" stroke="{accent}" stroke-opacity=".7"/>
-      <text x="88" y="36" text-anchor="middle" class="sans" font-size="15" font-weight="700" fill="#f8fafc">{_xml_text(display)}</text>
-      <text x="88" y="64" text-anchor="middle" class="mono" font-size="13" fill="{accent}">{_xml_text(node["outcome"])}</text>
+            f"""    <g transform="translate({x - node_half_width} {y - 45})" filter="url(#shadow)">
+      <rect width="{node_width}" height="90" rx="14" fill="{fill}" stroke="{accent}" stroke-opacity=".7"/>
+      <text x="{node_half_width}" y="36" text-anchor="middle" class="sans" font-size="13" font-weight="700" fill="#f8fafc">{_xml_text(display)}</text>
+      <text x="{node_half_width}" y="64" text-anchor="middle" class="mono" font-size="12" fill="{accent}">{_xml_text(node["outcome"])}</text>
     </g>"""
         )
     edges_rendered = "\n".join(edge_markup)
@@ -1091,31 +1104,66 @@ def _render_properties_svg(receipt: Mapping[str, Any]) -> bytes:
         maximum = scenario["concurrency"]["configured_max_agents"]
         cleanup = scenario["cleanup"]["active_provider_calls"]
         if index == 0:
-            details = (
-                f"thinker fallback  {' -> '.join(scenario['fallback']['path'])}",
-                f"timeout           {scenario['timeout']['actor']} / {scenario['timeout']['result']}",
-                f"provider cancelled {str(scenario['timeout']['provider_call_cancelled']).lower()}",
-                f"judge gate        {scenario['judge']['gate']}",
-                f"active after      {cleanup}",
+            detail_lines = (
+                ("THINKER FALLBACK", "label"),
+                (scenario["fallback"]["path"][0], "value"),
+                (f"-> {scenario['fallback']['path'][1]}", "value"),
+                ("TIMEOUT", "label"),
+                (
+                    f"{scenario['timeout']['actor']} -> {scenario['timeout']['result']}",
+                    "value",
+                ),
+                (
+                    "provider_cancelled="
+                    f"{str(scenario['timeout']['provider_call_cancelled']).lower()}",
+                    "value",
+                ),
+                (f"JUDGE GATE · ACTIVE_AFTER={cleanup}", "label"),
+                (scenario["judge"]["gate"], "value"),
             )
         elif index == 1:
-            details = (
-                f"judge path        {' -> '.join(scenario['judge']['model_path'])}",
-                f"selection         {scenario['judge']['mode']}",
-                f"selected          {scenario['judge']['selected']}",
-                f"active after      {cleanup}",
+            detail_lines = (
+                ("JUDGE MODEL PATH", "label"),
+                (scenario["judge"]["model_path"][0], "value"),
+                (f"-> {scenario['judge']['model_path'][1]}", "value"),
+                ("SELECTION", "label"),
+                (scenario["judge"]["mode"], "value"),
+                ("SELECTED", "label"),
+                (scenario["judge"]["selected"], "value"),
+                (f"ACTIVE_AFTER={cleanup}", "label"),
             )
         else:
-            details = (
-                f"blocked calls     {scenario['cancellation']['blocked_provider_calls']}",
-                f"cancelled calls   {scenario['cancellation']['cancelled_provider_calls']}",
-                f"judge calls       {scenario['cancellation']['judge_calls']}",
-                f"active after      {cleanup}",
+            detail_lines = (
+                ("CANCELLATION", "label"),
+                (
+                    f"blocked={scenario['cancellation']['blocked_provider_calls']}",
+                    "value",
+                ),
+                (
+                    f"cancelled={scenario['cancellation']['cancelled_provider_calls']}",
+                    "value",
+                ),
+                ("PROPAGATION", "label"),
+                (scenario["cancellation"]["propagation"], "value"),
+                (f"judge_calls={scenario['cancellation']['judge_calls']}", "value"),
+                ("ROOT · CLEANUP", "label"),
+                (
+                    f"{scenario['cleanup']['root_task']} · active_after={cleanup}",
+                    "value",
+                ),
             )
+        _require(
+            len(str(scenario["id"])) <= 45
+            and all(len(str(detail)) <= 40 for detail, _kind in detail_lines),
+            "properties_text_does_not_fit",
+        )
         detail_markup = "\n".join(
-            f'      <text x="24" y="{264 + row * 34}" class="mono" '
-            f'font-size="14" fill="#cbd5e1">{_xml_text(detail)}</text>'
-            for row, detail in enumerate(details)
+            f'      <text x="24" y="{264 + row * 20}" class="mono" '
+            f'font-size="{"11" if kind == "label" else "12"}" '
+            f'font-weight="{"700" if kind == "label" else "400"}" '
+            f'fill="{"#64748b" if kind == "label" else "#cbd5e1"}">'
+            f"{_xml_text(detail)}</text>"
+            for row, (detail, kind) in enumerate(detail_lines)
         )
         bar_width = int(286 * peak / max(1, maximum))
         cards.append(
