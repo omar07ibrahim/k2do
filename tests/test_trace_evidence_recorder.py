@@ -156,6 +156,9 @@ def test_rendered_artifacts_are_receipt_derived_and_safe(
         "synthesis",
     ):
         assert value in dag
+    assert 'transform="translate(242 155)"' in dag
+    assert 'transform="translate(512 155)"' in dag
+    assert 'transform="translate(56 585)"' in dag
 
     properties = " ".join(ET.fromstring(artifacts["orchestration-properties.svg"]).itertext())
     for value in (

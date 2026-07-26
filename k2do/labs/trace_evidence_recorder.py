@@ -997,19 +997,31 @@ def _render_call_dag_svg(receipt: Mapping[str, Any]) -> bytes:
     nodes = call_dag["nodes"]
     edges = call_dag["edges"]
     positions = {
-        "router": (100, 300),
-        "thinker.analyst.primary": (320, 100),
-        "thinker.analyst.fallback": (590, 100),
-        "thinker.creative.primary": (320, 300),
+        "router": (100, 340),
+        "thinker.analyst.primary": (320, 200),
+        "thinker.analyst.fallback": (590, 200),
+        "thinker.creative.primary": (320, 340),
         "thinker.pragmatist.primary": (320, 500),
-        "judge.primary": (825, 300),
-        "result": (1080, 300),
+        "judge.primary": (825, 340),
+        "result": (1080, 340),
     }
     node_width = 156
+    node_height = 90
     node_half_width = node_width // 2
+    node_half_height = node_height // 2
+    content_top = 145
+    footer_top = 585
     _require(
         {node["id"] for node in nodes} == set(positions),
         "synthesis_dag_shape_changed",
+    )
+    _require(
+        min(y - node_half_height for _, y in positions.values()) >= content_top,
+        "dag_node_overlaps_header",
+    )
+    _require(
+        max(y + node_half_height for _, y in positions.values()) < footer_top,
+        "dag_node_overlaps_footer",
     )
     node_by_id = {node["id"]: node for node in nodes}
     edge_markup: list[str] = []
@@ -1030,6 +1042,7 @@ def _render_call_dag_svg(receipt: Mapping[str, Any]) -> bytes:
             label_width <= abs(end_x - start_x),
             "dag_edge_label_does_not_fit",
         )
+        _require(mid_y - 22 >= content_top, "dag_edge_label_overlaps_header")
         edge_markup.append(
             f'    <path d="M {start_x} {source_y} C {mid_x} {source_y}, '
             f'{mid_x} {target_y}, {end_x} {target_y}" fill="none" '
@@ -1059,8 +1072,8 @@ def _render_call_dag_svg(receipt: Mapping[str, Any]) -> bytes:
         fill, accent = palette.get(node["outcome"], ("#1e293b", "#e2e8f0"))
         display = node_id.replace("thinker.", "").replace(".", " · ")
         node_markup.append(
-            f"""    <g transform="translate({x - node_half_width} {y - 45})" filter="url(#shadow)">
-      <rect width="{node_width}" height="90" rx="14" fill="{fill}" stroke="{accent}" stroke-opacity=".7"/>
+            f"""    <g transform="translate({x - node_half_width} {y - node_half_height})" filter="url(#shadow)">
+      <rect width="{node_width}" height="{node_height}" rx="14" fill="{fill}" stroke="{accent}" stroke-opacity=".7"/>
       <text x="{node_half_width}" y="36" text-anchor="middle" class="sans" font-size="13" font-weight="700" fill="#f8fafc">{_xml_text(display)}</text>
       <text x="{node_half_width}" y="64" text-anchor="middle" class="mono" font-size="12" fill="{accent}">{_xml_text(node["outcome"])}</text>
     </g>"""
@@ -1073,7 +1086,7 @@ def _render_call_dag_svg(receipt: Mapping[str, Any]) -> bytes:
 {edges_rendered}
 {nodes_rendered}
   </g>
-  <g transform="translate(56 585)">
+  <g transform="translate(56 {footer_top})">
     <rect width="1088" height="54" rx="12" fill="#0f1d31" stroke="#334155"/>
     <text x="22" y="33" class="sans" font-size="15" fill="#cbd5e1">Judge gate opens only after every selected thinker is terminal; the timeout is a categorical engine path, not a benchmark.</text>
   </g>"""
