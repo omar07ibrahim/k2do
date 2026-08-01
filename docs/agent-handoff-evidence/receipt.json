@@ -1,0 +1,128 @@
+{
+  "cleanup": {
+    "active_provider_calls": 0,
+    "temporary_workspace": "removed"
+  },
+  "deepthink": {
+    "judge_gate": "after_all_thinkers_terminal",
+    "provider_peak_calls": 3,
+    "request_contract_sha256": "b7e7d8e24a97e880b841077234c96bb6104ef6b23fde1d8448289d9ca6ab9574",
+    "selected": "pragmatist",
+    "thinker_count": 3
+  },
+  "evidence_boundary": {
+    "external_credentials": "not_required",
+    "model_payloads": "digests_labels_and_counts_only",
+    "network_provider": "not_used",
+    "network_tools": "not_invoked",
+    "provider": "strict_scripted_fake",
+    "workspace": "temporary_and_removed"
+  },
+  "handoff": {
+    "artifact": {
+      "bytes": 32,
+      "kind": "text_file",
+      "relative_path": "artifacts/handoff-proof.txt",
+      "sha256": "20a71c189d06d0b06b582a41bd99b4c69a23ca161b4a887ce0a98467d3e13362"
+    },
+    "execution_provider_turns": 3,
+    "final_result_sha256": "0c50d69a6dc2987bdc1cf48dafb3c04c29217549b7d9f961ec738911f1a3cf95",
+    "message_contract_sha256": "f21420e164745e1e049cb9c10da6950b5f437db7b4faec943960313fcb70424a",
+    "tool_catalog_sha256": "2efa9413d254a7d3bb210c6caee2bfdac36ee40e43b2120c7d3c9be333dbbb93",
+    "tool_sequence": [
+      "write_file",
+      "read_file"
+    ]
+  },
+  "message_bus": {
+    "inbound_messages": 1,
+    "outbound_messages": 1,
+    "queues": "drained"
+  },
+  "production_surface": [
+    "agent_loop._process_message",
+    "context.build_messages",
+    "deepthink.parallel_thinkers",
+    "message_bus.round_trip",
+    "router.classify_query",
+    "session.persistence",
+    "tools.read_file",
+    "tools.write_file"
+  ],
+  "route": {
+    "classification": "deepthink",
+    "complexity_threshold": 0.6,
+    "input_sha256": "2a4cbcdcdc8884d7e48750d70c407174632ea5225856f50430474011864fa58c"
+  },
+  "schema": "k2do.agent-handoff-trace/v1",
+  "session": {
+    "message_roles": [
+      "user",
+      "assistant"
+    ],
+    "normalized_record_sha256": "d19f4de04354698c40b4130620558665c305f61ce9066d5b4ffe1d013804769f",
+    "persisted": true,
+    "timestamp_fields": "validated_then_normalized",
+    "tools_used": [
+      "deepthink",
+      "write_file",
+      "read_file"
+    ]
+  },
+  "status": "verified",
+  "workflow": {
+    "edges": [
+      {
+        "from": "message_bus.inbound",
+        "relation": "then",
+        "to": "router.deepthink"
+      },
+      {
+        "from": "router.deepthink",
+        "relation": "then",
+        "to": "thinkers.parallel"
+      },
+      {
+        "from": "thinkers.parallel",
+        "relation": "then",
+        "to": "judge.synthesis"
+      },
+      {
+        "from": "judge.synthesis",
+        "relation": "then",
+        "to": "agent_loop.handoff"
+      },
+      {
+        "from": "agent_loop.handoff",
+        "relation": "then",
+        "to": "tool.write_file"
+      },
+      {
+        "from": "tool.write_file",
+        "relation": "then",
+        "to": "tool.read_file"
+      },
+      {
+        "from": "tool.read_file",
+        "relation": "then",
+        "to": "session.persist"
+      },
+      {
+        "from": "session.persist",
+        "relation": "then",
+        "to": "message_bus.outbound"
+      }
+    ],
+    "nodes": [
+      "message_bus.inbound",
+      "router.deepthink",
+      "thinkers.parallel",
+      "judge.synthesis",
+      "agent_loop.handoff",
+      "tool.write_file",
+      "tool.read_file",
+      "session.persist",
+      "message_bus.outbound"
+    ]
+  }
+}
