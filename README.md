@@ -23,9 +23,9 @@ deliberately not presented as benchmark evidence.
 ## Run the verified offline path
 
 Both offline labs use strict scripted providers. They need no external
-credentials and do not send model requests. The first verifies the routed tool
-handoff end to end; the second isolates DeepThink fallback, timeout,
-degradation, and cancellation behavior.
+credentials and do not send external model requests. The first verifies the
+bounded routed-processing handoff; the second isolates DeepThink fallback,
+timeout, degradation, and cancellation behavior.
 
 ```mermaid
 flowchart LR
@@ -55,10 +55,10 @@ repository has no lockfile. The raster evidence path pins Pillow `12.3.0`; its
 manifest also records Python, OS, architecture, FreeType, zlib, and K2DO
 versions.
 
-![Raster rendering of the exact captured routed-handoff stdout](docs/agent-handoff-evidence/terminal.png)
+![Raster rendering of the routed-handoff reader banner and captured stdout](docs/agent-handoff-evidence/terminal.png)
 
-*Receipt-derived raster terminal view. Its text is the exact captured command
-and canonical stdout also stored byte-for-byte in
+*Receipt-derived raster terminal view. Its text is a reader-command banner plus
+the byte-exact captured canonical stdout also stored in
 [`handoff-lab.txt`](docs/agent-handoff-evidence/handoff-lab.txt); it is not a
 photograph of an OS terminal. The public payload contains labels, counts,
 relative fixture names, and digests—not prompts, model responses, credentials,
@@ -77,14 +77,15 @@ recording.*
 
 The laboratory publishes a real inbound message, consumes it from the real
 queue, and lets the production router select `deepthink` at the lab's fixed
-`0.6` threshold. Three real `DeepThinkEngine` coroutines cross a strict
-barrier, the Judge is forbidden to start until all three calls are terminal,
-and the Judge verdict becomes guidance for the normal `AgentLoop` tool loop.
+`0.6` threshold. Three thinker coroutines scheduled by the production
+`DeepThinkEngine` cross a strict barrier, the Judge is forbidden to start until
+all three calls are terminal, and the Judge verdict becomes guidance for the
+normal `AgentLoop` tool loop.
 That loop then executes the registered `write_file` and `read_file`
-implementations inside a private restricted workspace. A fresh
-`SessionManager` reload proves the assistant record and
-`deepthink → write_file → read_file` tool list reached disk before the outbound
-message is consumed.
+implementations inside a private restricted workspace. The handler persists
+before returning; after the outbound queue is consumed, a fresh
+`SessionManager` reload verifies the assistant record and
+`deepthink → write_file → read_file` tool list on disk.
 
 ![Receipt-derived handoff and tool timeline](docs/agent-handoff-evidence/tool-timeline.svg)
 
@@ -101,7 +102,7 @@ the production tool, hashed, and removed with that workspace.
 | --- | --- |
 | Router and queues | 1 inbound + 1 outbound message; route `deepthink`; both queues drained |
 | Parallel reasoning | 3 thinkers; peak 3 active provider calls; Judge gate after all thinkers terminal |
-| Execution handoff | 3 sequential provider turns with the complete production tool catalog |
+| Execution handoff | 3 sequential provider turns; all 11 tools registered for the lab configuration supplied each turn |
 | Concrete tools | Real `write_file → read_file`; 32-byte bounded ASCII artifact; exact read-back |
 | Persistence | Fresh disk reload yields roles `user, assistant` and tools `deepthink, write_file, read_file` |
 | Cleanup | 0 active provider calls; temporary workspace removed |
@@ -121,9 +122,9 @@ See the [evidence protocol and boundaries](docs/evidence.md) and the
 
 ## Direct engine fault-path evidence
 
-![Genuine terminal capture of the K2DO offline trace lab](docs/deepthink-trace-evidence/trace-lab.svg)
+![Receipt-derived terminal rendering of the K2DO offline trace lab](docs/deepthink-trace-evidence/trace-lab.svg)
 
-*Genuine captured stdout rendered from the canonical receipt. The payload
+*Captured canonical stdout rendered as a terminal view. The payload
 contains labels, counts, and digests—not prompts, model responses, credentials,
 endpoints, absolute paths, or timing claims. Receipt SHA-256:
 `f66e1db30dd79d77318a20ae86a0aa450a663e8f5cdff351557ca6fd1d0da80d`.*

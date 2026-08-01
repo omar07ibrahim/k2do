@@ -60,17 +60,24 @@ These are code-presence statements, not quality or originality claims. Each
 area still requires a reviewed diff against the reconstructed upstream
 baseline before it is treated as an originality claim.
 
-The deterministic offline lab now supplies narrower behavioral evidence for the
-default query router and a direct `DeepThinkEngine`: selected thinker
-concurrency, thinker model fallback, categorical timeout, Judge gating and
-degradation, caller cancellation, and zero-active cleanup. Its strict scripted
-provider, canonical receipt, source-bound manifest, transcript, and generated
-visuals are documented in [the evidence protocol](evidence.md).
+Two deterministic offline labs now supply narrower behavioral evidence. The
+direct-engine receipt covers the default query router, selected thinker
+concurrency, model fallback, categorical timeout, Judge gating and degradation,
+caller cancellation, and zero-active cleanup. The routed-handoff receipt calls
+the adapted generic `AgentLoop._process_message` path and real message queues,
+then verifies K2DO routing and DeepThink/Judge behavior followed by registered
+workspace-restricted file tools and disk-backed session persistence. Their
+strict scripted providers, canonical receipts, source-bound manifests,
+transcripts, and generated visuals are documented in
+[the evidence protocol](evidence.md).
 
-That receipt does not exercise the generic AgentLoop, configuration wiring,
-automatic execution handoff, tools, refinement, memory, live providers,
-gateway, Telegram, or dashboard. Unit tests for some of those paths do not
-expand the receipt's evidence boundary.
+These receipts prove integration behavior, not original authorship of the
+generic runtime. The routed lab deliberately invokes `_process_message`
+directly and publishes the returned outbound message itself. Background
+`AgentLoop.run()`, channel dispatch, configuration-file wiring, MCP lifecycle,
+refinement, memory consolidation, live providers, gateway, and Telegram remain
+outside the receipt boundary. Unit tests for some of those paths do not expand
+that boundary.
 
 ## Removed generated audit dump
 
@@ -87,14 +94,17 @@ Completed:
    direct thinker/Judge engine.
 2. The canonical receipt measures route decisions, call DAG, model fallback,
    categorical timeout, cancellation, bounded concurrency, and cleanup.
-3. A real captured transcript and receipt-derived SVGs are bound to committed
-   source blobs and checked by a deterministic renderer.
+3. A routed receipt verifies `MessageBus → AgentLoop._process_message →
+   DeepThink/Judge → write_file → read_file → session → MessageBus` with a
+   strict execution contract covering all eleven registered tool schemas.
+4. Captured stdout and receipt-derived SVG, PNG, and GIF evidence are bound to
+   committed source blobs and checked by deterministic renderers.
 
 Remaining:
 
 1. Pin a reproducible Python dependency set and publish CI.
-2. Add source-bound receipts for AgentLoop/config handoff, tool execution, and
-   refinement.
+2. Add source-bound receipts for background AgentLoop/config/MCP lifecycle,
+   refinement, and memory consolidation.
 3. Add an opt-in sanitized live-provider capture without publishing prompts,
    responses, credentials, endpoints, or personal data.
 4. Maintain an explicit upstream-diff ledger for every retained generic module.

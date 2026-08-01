@@ -1,119 +1,187 @@
-# DeepThink evidence protocol
+# K2DO evidence protocol
 
-This document explains what the committed evidence bundle proves, how a reader
+This document defines what the committed offline evidence proves, how a reader
 can verify it, and how a maintainer can replace it without hand-editing
 generated output.
 
-## Published bundle
+## Published bundles
+
+### Routed handoff
+
+`docs/agent-handoff-evidence/` contains:
+
+| File | Purpose |
+| --- | --- |
+| `receipt.json` | Canonical routed-workflow receipt |
+| `handoff-lab.txt` | Reader-command banner followed by byte-exact captured stdout |
+| `terminal.svg` | Receipt-derived vector terminal rendering |
+| `terminal.png` | Receipt-derived raster terminal rendering |
+| `architecture.svg` | Ordered routed-processing architecture from receipt nodes |
+| `tool-timeline.svg` | Reasoning, tool, and persistence sequence from the receipt |
+| `contract-matrix.svg` | Verified contract fields and bounded communication observation |
+| `workflow-demo.gif` | Nine-frame illustrative replay of receipt workflow nodes |
+| `manifest.json` | Source bindings, renderer runtime, artifact hashes, sizes, and media types |
+
+The routed receipt SHA-256 is
+`f219e1cf45671cf91c57c6bfdd9ef18b42f7d704c2b4c9b07eaefaff33f37486`.
+The manifest binds `pyproject.toml`, `requirements-evidence.txt`, and all
+committed blobs under `k2do/`: 67 paths for the current capture.
+
+### Direct DeepThink fault paths
 
 `docs/deepthink-trace-evidence/` contains:
 
 | File | Purpose |
 | --- | --- |
-| `receipt.json` | Canonical output of the deterministic offline trace lab |
-| `trace-lab.txt` | Exact command banner followed by byte-exact receipt output |
-| `trace-lab.svg` | Terminal rendering derived from the receipt |
-| `call-dag.svg` | Synthesis call graph derived from receipt nodes and edges |
-| `orchestration-properties.svg` | Scenario cards derived from receipt fields |
-| `manifest.json` | Source bindings, runtime observation, artifact hashes, sizes, and media types |
+| `receipt.json` | Canonical direct-engine scenario receipt |
+| `trace-lab.txt` | Reader-command banner followed by byte-exact captured stdout |
+| `trace-lab.svg` | Receipt-derived vector terminal rendering |
+| `call-dag.svg` | Direct synthesis call graph from receipt nodes and edges |
+| `orchestration-properties.svg` | Fallback, timeout, degradation, and cleanup cards |
+| `manifest.json` | Selected source bindings, artifact hashes, sizes, and runtime |
 
-The receipt SHA-256 for the current scenario contract is
+The direct-engine receipt SHA-256 is
 `f66e1db30dd79d77318a20ae86a0aa450a663e8f5cdff351557ca6fd1d0da80d`.
-The manifest records the source commit that produced the bundle; the evidence
-commit itself is intentionally a later commit.
+Its manifest binds the ten explicitly selected source blobs that define that
+capture. It does not claim to inventory every tracked repository file.
+
+The source commit in each manifest produced its bundle. Each bundle is
+published in a later commit so its capture starts from a clean source commit.
 
 ## Reader verification
 
-From an installed development environment:
+Run these commands from a clone of this repository:
 
 ```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e '.[dev]'
+python -m pip install -r requirements-evidence.txt
+
+python -m k2do.labs.agent_handoff_trace
+python -m k2do.labs.handoff_evidence_recorder check
 python -m k2do.labs.deepthink_trace
-python -m pytest -q tests/test_deepthink_trace_lab.py tests/test_trace_evidence_recorder.py
 python -m k2do.labs.trace_evidence_recorder check
+python -m pytest -q
 ```
 
-`check` is read-only. It rejects:
+`requirements-evidence.txt` is a repository capture dependency, not a
+promise that it is included in a built source distribution. The commands above
+therefore intentionally start from a clone.
 
-- missing, extra, non-regular, or symlinked bundle entries;
-- duplicate JSON keys, unsupported schemas, wrong sizes, or wrong hashes;
-- source modes, Git blobs, content hashes, or byte counts that differ from the
-  recorded source inventory;
-- transcript bytes that differ from the command plus canonical receipt;
-- SVG bytes that differ from a fresh deterministic render;
-- the recorder's explicit forbidden SVG patterns: doctypes/entities, scripts,
-  `foreignObject`, metadata, `href` references, JavaScript/data references, and
-  external CSS URLs;
-- invalid XML or a root element that is not an SVG with `role="img"`.
+Neither `check` command alters tracked files or a published bundle. During
+verification it may create and remove transient private snapshots and fixture
+files. Depending on the bundle, the checker rejects:
 
-When the capture commit still exists, the checker verifies that object and its
-tree as additional provenance. The squash-safe authority is the recorder's
-complete selected capture-source inventory: path, mode, Git blob ID, SHA-256,
-and byte count. It is not an inventory of every tracked repository file. An
-ancestry relationship alone is never accepted as proof.
+- missing, extra, non-regular, executable, or symlinked bundle entries;
+- duplicate JSON keys, unsupported schemas, wrong media types, sizes, or
+  SHA-256 hashes;
+- source modes, Git blob IDs, content hashes, or byte counts that differ from
+  the manifest;
+- transcript bytes that differ from the reader banner plus canonical receipt;
+- SVG, PNG, or GIF bytes that differ from a fresh deterministic render;
+- unsafe SVG constructs, malformed XML, invalid raster formats or dimensions,
+  and unexpected GIF frame contracts;
+- dirty or changing capture sources and replaced capture objects.
 
-## Evidence boundary
+On supported Linux hosts, each checker also recaptures its scenario from a
+private committed-`HEAD` snapshot and repeats the bounded `strace`
+observation. When the capture commit still exists, its object and tree are
+verified as additional provenance. The squash-safe authority is the complete
+recorded source inventory; ancestry alone is never accepted as proof.
 
-The lab exercises:
+## Evidence boundaries
 
-- the default production `classify_query` function;
-- a direct production `DeepThinkEngine`;
-- parallel role-configured provider calls;
-- primary/fallback model paths;
-- thinker timeout and cancellation propagation;
-- Judge synthesis and Judge-failure degradation;
-- cleanup counters after completion or caller cancellation.
+### What the routed receipt exercises
 
-The provider is a strict scripted fake. It validates request contracts and
-returns synthetic labels rather than model content. Prompts, response text,
-credentials, provider endpoints, absolute paths, and elapsed timings are
-excluded from the receipt.
+The handoff lab:
 
-The capture records zero communication syscalls observed in one Linux
-`strace` run of the lab and its child threads for the explicit set listed in
-the manifest. Local event-loop socketpair creation is outside that set. This is
-not a sandbox, firewall, or proof that arbitrary future code cannot communicate.
+- publishes and consumes one real `MessageBus` inbound message;
+- invokes the production `AgentLoop._process_message` routed-processing path;
+- uses the real context builder and production classifier with the lab's fixed
+  `0.6` threshold;
+- runs three thinker coroutines scheduled by the production `DeepThinkEngine`
+  against a strict scripted provider and gates the Judge until every thinker
+  is terminal;
+- hands the Judge result to the normal tool loop with all eleven tool schemas
+  registered for the lab configuration;
+- executes the real workspace-restricted `write_file` and `read_file`
+  implementations, verifies exact read-back, and removes the private fixture
+  workspace;
+- persists user and assistant session records, publishes and consumes the
+  outbound queue entry, then verifies the records with a fresh
+  `SessionManager`.
 
-The runtime version is recorded, but dependency versions are not lock-pinned.
-The bundle therefore supports source and output verification, not a claim of a
-byte-for-byte reproducible package environment.
+The lab deliberately calls `_process_message` and publishes the returned
+outbound message itself. It does not execute the background
+`AgentLoop.run()` loop or a channel's outbound dispatcher. It also does not
+exercise MCP lifecycle, config-file loading, shell/web/message/spawn tools,
+refinement, memory consolidation, gateway, Telegram, or live providers.
 
-The bundle does not exercise live model providers, AgentLoop configuration and
-automatic handoff, tools, refinement, memory, gateway, Telegram, or dashboard
-rendering. It makes no answer-quality, token-cost, throughput, or latency claim.
+### What the direct-engine receipt exercises
+
+The direct lab covers the default `classify_query` function and an isolated
+production `DeepThinkEngine`: bounded parallel thinker selection, primary
+model failure followed by fallback, a categorical thinker timeout, Judge
+gating, Judge-failure degradation, caller cancellation, and zero-active-call
+cleanup.
+
+### Shared limits
+
+Both providers are strict scripted fakes. They validate request contracts and
+return synthetic fixtures. The receipts exclude raw prompts, model responses,
+credentials, provider endpoints, absolute paths, and elapsed timings. Neither
+bundle supports claims about answer quality, live-provider behavior, token
+cost, throughput, or latency.
+
+Each manifest reports zero calls observed in one Linux `strace` run for its
+explicit communication-syscall set. That is a bounded observation, not a
+sandbox, firewall, or proof about arbitrary future code. Passive event-loop
+bookkeeping is outside the listed set.
+
+The PNG and GIF are generated from the canonical receipt under the recorded
+Pillow, FreeType, and zlib runtime. They are reproducible evidence renderings,
+not photographs of a terminal or live screen recordings. GIF frame delays are
+illustrative and make no timing claim.
+
+Pillow `12.3.0` is exactly pinned for the raster renderer. Application
+dependencies still use lower bounds and the repository has no lockfile, so the
+project does not yet claim a byte-for-byte reproducible package environment.
 
 ## Maintainer replacement protocol
 
-Generated artifacts must never be hand-edited.
+Generated bundle files must never be hand-edited.
 
-1. Change the lab, recorder, production surface, or tests as needed.
-2. Remove the previous generated bundle.
-3. Run the focused and full test suites.
-4. Commit the source changes and bundle removal.
-5. Confirm that `HEAD` is committed, the worktree is clean, and
-   `docs/deepthink-trace-evidence/` is absent.
-6. Run exactly one production capture:
+1. Change production code, lab, recorder, tests, or capture dependencies.
+2. Identify every bundle whose source binding or renderer/runtime contract is
+   affected.
+3. Remove each affected generated bundle and commit the source change and
+   bundle removal.
+4. Run focused tests and the full suite.
+5. Confirm that `HEAD` is committed, the worktree is clean, and the affected
+   output directory is absent.
+6. Run exactly one appropriate production capture:
 
    ```bash
+   PYTHONDONTWRITEBYTECODE=1 \
+     python -m k2do.labs.handoff_evidence_recorder record
+
    PYTHONDONTWRITEBYTECODE=1 \
      python -m k2do.labs.trace_evidence_recorder record
    ```
 
-7. Do not re-run `record` for that source commit. Run the read-only checker,
-   inspect every visual at its rendered size, and scan for secrets or personal
-   data.
-8. If any generated visual is defective, discard the unpublished bundle,
-   correct the renderer, commit a new clean source state, and capture from that
-   new commit.
+   Run only the command for each bundle being replaced.
+
+7. Do not run `record` twice for the same source commit. Run the verification
+   checker, inspect every visual at rendered size, and scan all public bytes
+   for secrets or personal data.
+8. If a visual is defective, discard the unpublished bundle, fix the renderer,
+   commit a new clean source state, and capture from that commit.
 9. Commit only the reviewed generated bundle as a separate evidence commit.
 
-The recorder uses a private committed-HEAD snapshot, bounded stdout/stderr
-drains, process-group termination, descriptor-relative no-follow file access,
-exclusive creation, directory/file `fsync`, and atomic no-replace publication.
-Its current adversarial tests cover dirty trees and mid-capture source
-mutation; squash/divergent histories with identical selected blobs; hostile
-file, directory, symlink, and FIFO output leaves; no-replace publish races;
-extra staging entries; stdout overflow and timeout cleanup of TERM-ignoring
-descendants; artifact tampering and symlinks; duplicate manifest keys; extra
-published files; and verification from a restricted-umask clone. A separate
-Linux test runs the real capture and asserts that its explicit communication
-syscall trace is empty.
+The recorders use private committed-`HEAD` snapshots, bounded process output,
+process-group cleanup, descriptor-relative no-follow reads, exclusive writes,
+`fsync`, and atomic no-replace publication. Adversarial tests cover source
+mutation, dirty trees, divergent histories with identical blobs, hostile
+output leaves, symlinks and FIFOs, publish races, output overflow, timeouts,
+duplicate keys, artifact tampering, extra files, and renderer determinism.
