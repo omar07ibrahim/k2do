@@ -122,10 +122,13 @@ def test_svg_visuals_are_safe_and_receipt_derived(artifacts: dict[str, bytes]) -
         assert b'xmlns="http://www.w3.org/2000/svg"' in lowered
 
     architecture = artifacts["architecture.svg"].decode()
+    assert 'height="750"' in architecture
     assert "message_bus" in architecture
     assert "parallel" in architecture
     assert "write_file" in architecture
     assert "session" in architecture
+    timeline = artifacts["tool-timeline.svg"].decode()
+    assert 'x="700"' in timeline
 
 
 def test_captured_receipt_rejects_duplicate_keys(receipt_bytes: bytes) -> None:
