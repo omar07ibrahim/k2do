@@ -335,7 +335,7 @@ def _render_architecture_svg(receipt: Mapping[str, Any]) -> bytes:
   <text x="{x + 22}" y="{y + 104}" class="mono" font-size="16" fill="#7dd3fc">{_xml_text(detail)}</text>
 </g>'''
         )
-    body = f"""  <text x="54" y="60" class="sans" font-size="30" font-weight="700" fill="#f8fafc">Routed DeepThink handoff — observed production path</text>
+    body = f"""  <text x="54" y="60" class="sans" font-size="30" font-weight="700" fill="#f8fafc">Routed DeepThink handoff — observed routed-processing path</text>
   <text x="54" y="88" class="sans" font-size="16" fill="#94a3b8">Every node and edge is read from the canonical receipt; arrows show execution order.</text>
   {"".join(arrows)}
   {"".join(cards)}
@@ -354,7 +354,7 @@ def _render_timeline_svg(receipt: Mapping[str, Any]) -> bytes:
     handoff = receipt["handoff"]
     session = receipt["session"]
     stages = [
-        ("ROUTE", "deepthink", "production classifier at threshold 0.6", "#a78bfa"),
+        ("ROUTE", "deepthink", "production classifier at lab threshold 0.6", "#a78bfa"),
         (
             "FAN-OUT",
             f"{deepthink['thinker_count']} thinkers",
@@ -410,7 +410,7 @@ def _render_contract_matrix_svg(
     network_observation: Mapping[str, Any],
 ) -> bytes:
     cards = [
-        ("ROUTER", "deepthink", "default threshold 0.6"),
+        ("ROUTER", "deepthink", "lab threshold 0.6"),
         ("CONCURRENCY", "3 active", "barrier-observed peak"),
         ("JUDGE GATE", "terminal first", "all thinkers drained"),
         ("TOOL CHAIN", "write → read", "workspace restricted"),

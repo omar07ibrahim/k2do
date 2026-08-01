@@ -15,10 +15,10 @@ timeouts, judge synthesis, and cancellation cleanup.
 
 This README starts with the credential-free paths that can be checked today.
 The primary receipt now follows a routed request through the production
-`MessageBus`, classifier, `AgentLoop`, parallel DeepThink/Judge phase, real
-workspace-restricted filesystem tools, disk-backed session persistence, and
-the outbound queue. Live K2 setup comes later and is deliberately not
-presented as benchmark evidence.
+`MessageBus`, classifier, `AgentLoop._process_message` path, parallel
+DeepThink/Judge phase, real workspace-restricted filesystem tools, disk-backed
+session persistence, and the outbound queue. Live K2 setup comes later and is
+deliberately not presented as benchmark evidence.
 
 ## Run the verified offline path
 
@@ -63,7 +63,7 @@ and canonical stdout also stored byte-for-byte in
 photograph of an OS terminal. The public payload contains labels, counts,
 relative fixture names, and digests—not prompts, model responses, credentials,
 endpoints, absolute paths, or elapsed timings. Receipt SHA-256:
-`0682e830944c812b111223f83d8730a8d4e2307c35fddb90b3e2503fbe0bde33`.*
+`f219e1cf45671cf91c57c6bfdd9ef18b42f7d704c2b4c9b07eaefaff33f37486`.*
 
 ## Routed reasoning-to-action handoff
 
@@ -76,14 +76,15 @@ recording.*
 ![Receipt-derived routed handoff architecture](docs/agent-handoff-evidence/architecture.svg)
 
 The laboratory publishes a real inbound message, consumes it from the real
-queue, and lets the production router select `deepthink` at its default `0.6`
-threshold. Three real `DeepThinkEngine` coroutines cross a strict barrier, the
-Judge is forbidden to start until all three calls are terminal, and the Judge
-verdict becomes guidance for the normal `AgentLoop` tool loop. That loop then
-executes the registered `write_file` and `read_file` implementations inside a
-private restricted workspace. A fresh `SessionManager` reload proves the
-assistant record and `deepthink → write_file → read_file` tool list reached
-disk before the outbound message is consumed.
+queue, and lets the production router select `deepthink` at the lab's fixed
+`0.6` threshold. Three real `DeepThinkEngine` coroutines cross a strict
+barrier, the Judge is forbidden to start until all three calls are terminal,
+and the Judge verdict becomes guidance for the normal `AgentLoop` tool loop.
+That loop then executes the registered `write_file` and `read_file`
+implementations inside a private restricted workspace. A fresh
+`SessionManager` reload proves the assistant record and
+`deepthink → write_file → read_file` tool list reached disk before the outbound
+message is consumed.
 
 ![Receipt-derived handoff and tool timeline](docs/agent-handoff-evidence/tool-timeline.svg)
 
@@ -194,7 +195,7 @@ See the [evidence protocol and boundaries](docs/evidence.md) and the
 | --- | --- |
 | Default `classify_query` behavior for two fixed fixtures | Verified by the offline receipt |
 | Direct `DeepThinkEngine` concurrency, fallback, timeout, Judge degradation, and cancellation | Verified by the offline receipt |
-| `MessageBus → router → AgentLoop → DeepThink → tool loop → session → MessageBus` routed handoff | Verified by the handoff receipt |
+| `MessageBus → router → AgentLoop._process_message → DeepThink → tool loop → session → MessageBus` routed handoff | Verified by the handoff receipt |
 | Workspace-restricted `write_file → read_file` and fresh session reload | Verified by the handoff receipt |
 | Artifact provenance and renderer-runtime-bound deterministic rendering | Verified by both committed manifests and checkers |
 | Background `AgentLoop.run()`, MCP lifecycle, config loader wiring, refinement, memory consolidation, gateway, and Telegram paths | Present or unit-tested in parts; outside both receipts |

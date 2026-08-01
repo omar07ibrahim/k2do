@@ -794,7 +794,7 @@ def _build_receipt(observation: _WorkflowObservation) -> dict[str, Any]:
             "workspace": "temporary_and_removed",
         },
         "production_surface": [
-            "agent_loop.process_message",
+            "agent_loop._process_message",
             "context.build_messages",
             "deepthink.parallel_thinkers",
             "message_bus.round_trip",
@@ -983,7 +983,7 @@ def _validate_public_receipt(receipt: dict[str, Any]) -> None:
     _require(
         receipt["production_surface"]
         == [
-            "agent_loop.process_message",
+            "agent_loop._process_message",
             "context.build_messages",
             "deepthink.parallel_thinkers",
             "message_bus.round_trip",
