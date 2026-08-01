@@ -215,7 +215,7 @@ def test_linux_snapshot_capture_observes_no_communication_syscalls() -> None:
     assert network["status"] == "no_communication_syscalls_observed"
 
 
-def test_source_set_covers_pyproject_and_every_committed_package_blob() -> None:
+def test_source_set_covers_setup_contract_and_every_committed_package_blob() -> None:
     repository = Path(__file__).resolve().parents[1]
     head = (
         recorder.evidence_core._run_git(
@@ -233,10 +233,14 @@ def test_source_set_covers_pyproject_and_every_committed_package_blob() -> None:
             head,
         )
     ]
-    assert source_paths == ("pyproject.toml", *package_paths)
+    assert source_paths == (
+        "pyproject.toml",
+        "requirements-evidence.txt",
+        *package_paths,
+    )
     assert "k2do/labs/agent_handoff_trace.py" in source_paths
     assert "k2do/labs/trace_evidence_recorder.py" in source_paths
-    assert all(path.startswith("k2do/") for path in source_paths[1:])
+    assert all(path.startswith("k2do/") for path in source_paths[2:])
 
 
 def test_atomic_publication_writes_exact_regular_files(tmp_path: Path) -> None:

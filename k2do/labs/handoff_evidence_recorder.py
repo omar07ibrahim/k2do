@@ -45,6 +45,7 @@ _ISOLATED_BOOTSTRAP: Final = (
 )
 _READER_COMMAND: Final = ("python", "-m", _ISOLATED_MODULE)
 _TRANSCRIPT_COMMAND: Final = "$ python -m k2do.labs.agent_handoff_trace\n"
+_EVIDENCE_REQUIREMENTS: Final = "requirements-evidence.txt"
 _NETWORK_OBSERVATION_SCOPE: Final = (
     "one Linux strace run of the committed handoff lab and all child threads; "
     "the listed communication syscalls exclude passive event-loop bookkeeping"
@@ -89,9 +90,9 @@ def _source_paths(repository: Path, head: str) -> tuple[str, ...]:
         path
         for path, _mode, _object_id in evidence_core._committed_package_entries(repository, head)
     ]
-    paths = ("pyproject.toml", *package_paths)
+    paths = ("pyproject.toml", _EVIDENCE_REQUIREMENTS, *package_paths)
     _require(len(paths) == len(set(paths)), "source_path_duplicate")
-    _require(list(paths[1:]) == sorted(paths[1:]), "source_paths_not_canonical")
+    _require(list(paths[2:]) == sorted(paths[2:]), "source_paths_not_canonical")
     return paths
 
 
@@ -644,7 +645,8 @@ def _build_manifest(
             "files": {name: dict(sources[name]) for name in sorted(sources)},
             "tree": tree,
             "verification": (
-                "all current committed k2do package blobs plus pyproject.toml; "
+                "all current committed k2do package blobs plus pyproject.toml and "
+                "requirements-evidence.txt; "
                 "content identity required, no ancestry requirement"
             ),
         },
@@ -780,7 +782,8 @@ def _strict_manifest(
         and bool(_HEX_OBJECT_RE.fullmatch(source["tree"]))
         and source["verification"]
         == (
-            "all current committed k2do package blobs plus pyproject.toml; "
+            "all current committed k2do package blobs plus pyproject.toml and "
+            "requirements-evidence.txt; "
             "content identity required, no ancestry requirement"
         )
         and isinstance(source["files"], dict)

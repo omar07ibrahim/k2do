@@ -13,37 +13,112 @@ timeouts, judge synthesis, and cancellation cleanup.
 > boundary is documented in the
 > [provenance and contribution map](docs/provenance.md).
 
-This README starts with the credential-free path that can be checked today.
-Live K2 setup comes later and is deliberately not presented as benchmark
-evidence.
+This README starts with the credential-free paths that can be checked today.
+The primary receipt now follows a routed request through the production
+`MessageBus`, classifier, `AgentLoop`, parallel DeepThink/Judge phase, real
+workspace-restricted filesystem tools, disk-backed session persistence, and
+the outbound queue. Live K2 setup comes later and is deliberately not
+presented as benchmark evidence.
 
 ## Run the verified offline path
 
-The offline lab calls the production `classify_query` function and a direct
-`DeepThinkEngine` instance against a strict scripted provider. It needs no API
-key and does not send model requests.
+Both offline labs use strict scripted providers. They need no external
+credentials and do not send model requests. The first verifies the routed tool
+handoff end to end; the second isolates DeepThink fallback, timeout,
+degradation, and cancellation behavior.
 
 ```mermaid
 flowchart LR
-    V["Create Python 3.11+ venv"] --> I["Install editable dev environment"]
-    I --> R["Run deterministic trace lab"]
-    R --> C["Check committed evidence bundle"]
+    V["Create Python 3.11+ venv"] --> I["Install dev + pinned evidence renderer"]
+    I --> H["Run routed handoff lab"]
+    H --> HC["Check handoff bundle"]
+    HC --> D["Run direct-engine lab"]
+    D --> DC["Check direct-engine bundle"]
 ```
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e '.[dev]'
+python -m pip install -r requirements-evidence.txt
 
+python -m k2do.labs.agent_handoff_trace
+python -m k2do.labs.handoff_evidence_recorder check
 python -m k2do.labs.deepthink_trace
-python -m pytest -q tests/test_deepthink_trace_lab.py tests/test_trace_evidence_recorder.py
 python -m k2do.labs.trace_evidence_recorder check
+python -m pytest -q
 ```
 
 The setup is supported on CPython 3.11 or newer. It is not yet byte-for-byte
-environment reproducible: dependencies have lower bounds and the repository
-has no lockfile. The committed capture records the Python, OS, architecture,
-and K2DO distribution version that produced it.
+environment reproducible: application dependencies have lower bounds and the
+repository has no lockfile. The raster evidence path pins Pillow `12.3.0`; its
+manifest also records Python, OS, architecture, FreeType, zlib, and K2DO
+versions.
+
+![Raster rendering of the exact captured routed-handoff stdout](docs/agent-handoff-evidence/terminal.png)
+
+*Receipt-derived raster terminal view. Its text is the exact captured command
+and canonical stdout also stored byte-for-byte in
+[`handoff-lab.txt`](docs/agent-handoff-evidence/handoff-lab.txt); it is not a
+photograph of an OS terminal. The public payload contains labels, counts,
+relative fixture names, and digests—not prompts, model responses, credentials,
+endpoints, absolute paths, or elapsed timings. Receipt SHA-256:
+`0682e830944c812b111223f83d8730a8d4e2307c35fddb90b3e2503fbe0bde33`.*
+
+## Routed reasoning-to-action handoff
+
+![Animated receipt-derived replay of the routed handoff](docs/agent-handoff-evidence/workflow-demo.gif)
+
+*Nine-frame replay generated from the receipt's ordered workflow nodes. Frame
+delays are illustrative and make no latency claim; this is not a live screen
+recording.*
+
+![Receipt-derived routed handoff architecture](docs/agent-handoff-evidence/architecture.svg)
+
+The laboratory publishes a real inbound message, consumes it from the real
+queue, and lets the production router select `deepthink` at its default `0.6`
+threshold. Three real `DeepThinkEngine` coroutines cross a strict barrier, the
+Judge is forbidden to start until all three calls are terminal, and the Judge
+verdict becomes guidance for the normal `AgentLoop` tool loop. That loop then
+executes the registered `write_file` and `read_file` implementations inside a
+private restricted workspace. A fresh `SessionManager` reload proves the
+assistant record and `deepthink → write_file → read_file` tool list reached
+disk before the outbound message is consumed.
+
+![Receipt-derived handoff and tool timeline](docs/agent-handoff-evidence/tool-timeline.svg)
+
+The provider is fail-closed rather than permissive: it validates model,
+temperature, token limit, full message shapes, normalized dynamic context,
+Judge input, all eleven tool schemas in order, exact tool-result messages, and
+the three-turn execution contract before returning the next scripted action.
+The real artifact is constrained to the temporary workspace, read back through
+the production tool, hashed, and removed with that workspace.
+
+![Verified routed handoff contract matrix](docs/agent-handoff-evidence/contract-matrix.svg)
+
+| Observed surface | Receipt result |
+| --- | --- |
+| Router and queues | 1 inbound + 1 outbound message; route `deepthink`; both queues drained |
+| Parallel reasoning | 3 thinkers; peak 3 active provider calls; Judge gate after all thinkers terminal |
+| Execution handoff | 3 sequential provider turns with the complete production tool catalog |
+| Concrete tools | Real `write_file → read_file`; 32-byte bounded ASCII artifact; exact read-back |
+| Persistence | Fresh disk reload yields roles `user, assistant` and tools `deepthink, write_file, read_file` |
+| Cleanup | 0 active provider calls; temporary workspace removed |
+| Communication observation | 0 calls observed in the manifest's listed Linux `strace` communication-syscall set |
+
+The handoff manifest binds `pyproject.toml`, `requirements-evidence.txt`, and
+every committed blob under `k2do/`—67 source files for the current capture—by
+Git mode, blob ID, byte count, and SHA-256. `check` regenerates all eight
+artifacts and, on this Linux host, repeats both the canonical capture and the
+bounded `strace` observation.
+This is routed control-flow and side-effect evidence. It is not a live-provider
+quality benchmark, an MCP lifecycle test, a network sandbox, or a latency
+measurement.
+
+See the [evidence protocol and boundaries](docs/evidence.md) and the
+[handoff manifest](docs/agent-handoff-evidence/manifest.json).
+
+## Direct engine fault-path evidence
 
 ![Genuine terminal capture of the K2DO offline trace lab](docs/deepthink-trace-evidence/trace-lab.svg)
 
@@ -51,8 +126,6 @@ and K2DO distribution version that produced it.
 contains labels, counts, and digests—not prompts, model responses, credentials,
 endpoints, absolute paths, or timing claims. Receipt SHA-256:
 `f66e1db30dd79d77318a20ae86a0aa450a663e8f5cdff351557ca6fd1d0da80d`.*
-
-## Observed orchestration workflow
 
 ![Receipt-derived K2DO synthesis call DAG](docs/deepthink-trace-evidence/call-dag.svg)
 
@@ -110,6 +183,9 @@ See the [evidence protocol and boundaries](docs/evidence.md) and the
 | Time bounds | Thinker and Judge calls are wrapped with `asyncio.wait_for` | A categorical thinker timeout is captured; elapsed time is intentionally excluded. |
 | Cancellation | Caller cancellation propagates through active thinker calls | Cancelled-call counts and zero-active cleanup are captured. |
 | Judge degradation | If Judge execution fails, the longest raw thinker response is selected; a fixed message is used if that selected response is blank | The deterministic successful-response selection is captured; semantic quality is not assessed. |
+| Reasoning-to-action handoff | The routed Judge verdict is appended as guidance before the normal `AgentLoop` tool loop | The offline handoff receipt verifies the exact message contract and three execution turns; it does not assess verdict quality. |
+| Tool confinement | Filesystem tools resolve relative paths against a restricted temporary workspace | A real write/read-back is verified; shell, web, message, spawn, MCP, and arbitrary-path behavior are outside this receipt. |
+| Session persistence | User and assistant records are written to JSONL with the assistant's tool list | A fresh manager reload validates two records and normalized timestamps; consolidation and long-term memory are outside this receipt. |
 | Evidence integrity | Source-bound receipt, deterministic renderer, atomic no-replace publication | Adversarial tests cover dirty or changing sources, artifact tampering/symlinks/extras, hostile output leaves, publish races, output caps, timeout cleanup, and squash-safe verification. |
 
 ## What is and is not verified
@@ -118,9 +194,10 @@ See the [evidence protocol and boundaries](docs/evidence.md) and the
 | --- | --- |
 | Default `classify_query` behavior for two fixed fixtures | Verified by the offline receipt |
 | Direct `DeepThinkEngine` concurrency, fallback, timeout, Judge degradation, and cancellation | Verified by the offline receipt |
-| Artifact provenance and deterministic rendering | Verified by the committed manifest and checker |
-| AgentLoop automatic handoff and configuration wiring | Covered in parts by unit tests; outside this receipt |
-| Tool execution, refinement, memory, gateway, and Telegram paths | Present in the repository; outside this receipt |
+| `MessageBus → router → AgentLoop → DeepThink → tool loop → session → MessageBus` routed handoff | Verified by the handoff receipt |
+| Workspace-restricted `write_file → read_file` and fresh session reload | Verified by the handoff receipt |
+| Artifact provenance and renderer-runtime-bound deterministic rendering | Verified by both committed manifests and checkers |
+| Background `AgentLoop.run()`, MCP lifecycle, config loader wiring, refinement, memory consolidation, gateway, and Telegram paths | Present or unit-tested in parts; outside both receipts |
 | Live K2 provider behavior | Not captured |
 | Answer quality, token cost, throughput, or latency | Not benchmarked |
 | Locked dependency environment and CI | Not yet available |
@@ -180,21 +257,24 @@ k2do/
     loop.py                    # generic/adapted runtime integration
     refine.py                  # three-stage refinement path
   labs/
-    deepthink_trace.py         # strict offline provider and canonical receipt
-    trace_evidence_recorder.py # source-bound capture and visual renderer
+    agent_handoff_trace.py       # routed bus/tool/session receipt
+    handoff_evidence_recorder.py # source-bound raster/SVG/GIF capture
+    deepthink_trace.py           # direct-engine fault-path receipt
+    trace_evidence_recorder.py   # direct-engine capture and renderer
   cli/                         # Typer/Rich live interface
   channels/                    # adapted channel integrations
 docs/
-  deepthink-trace-evidence/    # committed receipt, manifest, transcript, SVGs
-  evidence.md                  # verification and maintenance protocol
+  agent-handoff-evidence/      # receipt, real stdout, SVG/PNG/GIF, manifest
+  deepthink-trace-evidence/    # direct-engine receipt and SVG evidence
+  evidence.md                  # verification and maintenance protocols
   provenance.md                # upstream/contribution boundary
 tests/                         # unit and adversarial evidence tests
 ```
 
-The next evidence milestones are a locked dependency set with CI, an
-AgentLoop/config integration receipt, deterministic refinement/tool traces, and
-an opt-in sanitized live-provider capture. They are tracked as remaining work,
-not described as completed features.
+The next evidence milestones are a locked application dependency set with CI,
+config-loader/MCP lifecycle evidence, deterministic refinement and memory
+traces, and an opt-in sanitized live-provider capture. They are tracked as
+remaining work, not described as completed features.
 
 ## License and attribution
 
