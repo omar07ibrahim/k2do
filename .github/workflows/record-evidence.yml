@@ -2,6 +2,9 @@ name: Record evidence
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/record-evidence.yml
 
 permissions:
   contents: read
