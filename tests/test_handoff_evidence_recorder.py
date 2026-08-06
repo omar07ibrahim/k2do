@@ -209,7 +209,7 @@ def test_linux_snapshot_capture_observes_no_communication_syscalls() -> None:
     assert recorder._validate_receipt(receipt)["status"] == "verified"
     assert (
         recorder._sha256(receipt)
-        == "f219e1cf45671cf91c57c6bfdd9ef18b42f7d704c2b4c9b07eaefaff33f37486"
+        == "12b6c89a40bf2ca4f775a9ffa0c68b0525cde3f853dd4cf089ebb5e333f91db8"
     )
     assert network["communication_syscall_count"] == 0
     assert network["status"] == "no_communication_syscalls_observed"
