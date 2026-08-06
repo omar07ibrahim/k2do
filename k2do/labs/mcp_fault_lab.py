@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import importlib.metadata
 import json
 import os
 import re
@@ -43,6 +44,7 @@ from k2do.providers.base import LLMProvider, LLMResponse
 
 _SCHEMA = "k2do.mcp-fault-lab/v1"
 _LIVENESS_TIMEOUT_SECONDS = 6.0
+_SCENARIO_TIMEOUT_SECONDS = 15.0
 _RESULT_VALUE = 7
 _GENERIC_CALL_ERROR = "Error: MCP tool execution failed"
 _EXPECTED_RESULT = (
@@ -352,13 +354,20 @@ async def _scenario_happy_restart(root: Path, audit: _AuditController) -> dict[s
                 loop._mcp_servers = {
                     server_name: _config(audit, instance, "healthy")
                 }
-            async with loop.mcp_lifespan() as report:
+            try:
+                owns_lifespan = await loop._connect_mcp()
+                _require(owns_lifespan, "manual_connection_not_owned")
+                report = loop._mcp_report
                 name = _one_tool(loop, report)
-                _require(report.outcomes[0].protocol_version == PROTOCOL_VERSION, "protocol_changed")
+                _require(
+                    report.outcomes[0].protocol_version == PROTOCOL_VERSION,
+                    "protocol_changed",
+                )
                 catalog_digests.append(_sha256_text(name))
                 result_digests.append(await _successful_call(loop, name))
+            finally:
+                await loop.close_mcp()
             _assert_clean(loop, baseline)
-            await loop.close_mcp()
             await loop.close_mcp()
             await audit.assert_reaped(instance)
     finally:
@@ -810,23 +819,32 @@ async def run_mcp_fault_lab() -> dict[str, Any]:
     root = Path(temporary.name).resolve()
     try:
         async with _AuditController(root) as audit:
-            scenarios = [
-                await _scenario_happy_restart(root, audit),
-                await _scenario_catalog_isolation(root, audit),
-                await _scenario_call_recovery(root, audit),
-                await _scenario_repeated_call_cancellation(root, audit),
-                await _scenario_startup_cancellation(root, audit),
-                await _scenario_scope_cancellation(root, audit),
-            ]
+            scenarios = []
+            for scenario in (
+                _scenario_happy_restart,
+                _scenario_catalog_isolation,
+                _scenario_call_recovery,
+                _scenario_repeated_call_cancellation,
+                _scenario_startup_cancellation,
+                _scenario_scope_cancellation,
+            ):
+                async with asyncio.timeout(_SCENARIO_TIMEOUT_SECONDS):
+                    scenarios.append(await scenario(root, audit))
     finally:
         temporary.cleanup()
     _require(not root.exists(), "temporary_workspace_not_removed")
+
+    try:
+        mcp_version = importlib.metadata.version("mcp")
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise MCPFaultLabError("mcp_distribution_missing") from exc
+    _require(mcp_version == "2.0.0", "mcp_distribution_version_changed")
 
     receipt = {
         "schema": _SCHEMA,
         "status": "verified",
         "protocol": {
-            "client": "mcp-python-sdk-2.0.0",
+            "client": f"mcp-python-sdk-{mcp_version}",
             "mode": "auto",
             "negotiated": PROTOCOL_VERSION,
             "transport": "stdio_ndjson",

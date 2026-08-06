@@ -49,12 +49,16 @@ jobs:
           k2do/cli/commands.py
           k2do/cron/service.py
           k2do/heartbeat/service.py
+          k2do/labs/mcp_fault_lab.py
+          k2do/labs/strict_mcp_stdio_server.py
           tests/test_agent_close.py
           tests/test_cli_security.py
           tests/test_mcp_explicit_isolation.py
+          tests/test_mcp_fault_lab.py
           tests/test_mcp_lifecycle.py
           tests/test_mcp_trust_boundary.py
           tests/test_router_preferences.py
           tests/test_service_shutdown.py
+          tests/test_strict_mcp_stdio_server.py
           tests/test_subagent_shutdown.py
           --ignore E501,W293,I001,ASYNC109,ASYNC110,ASYNC210,ASYNC230,ASYNC240,ASYNC250,ASYNC251
