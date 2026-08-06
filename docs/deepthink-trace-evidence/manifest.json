@@ -1,0 +1,144 @@
+{
+  "artifacts": {
+    "call-dag.svg": {
+      "bytes": 7411,
+      "media_type": "image/svg+xml",
+      "sha256": "df24480f19417a6e27ce1e0d9f2f69a7838714a3ab5c0c574bb25a1809b4592d"
+    },
+    "orchestration-properties.svg": {
+      "bytes": 7066,
+      "media_type": "image/svg+xml",
+      "sha256": "bc6b51eb070ca42bffbfc4f2cdb875be86d4a1f83286d593e96943301d009c5a"
+    },
+    "receipt.json": {
+      "bytes": 9480,
+      "media_type": "application/json",
+      "sha256": "f66e1db30dd79d77318a20ae86a0aa450a663e8f5cdff351557ca6fd1d0da80d"
+    },
+    "trace-lab.svg": {
+      "bytes": 3271,
+      "media_type": "image/svg+xml",
+      "sha256": "04a9465e6ef124dec29935568c3f519f734f36d46c7d88f671256192cb36b15b"
+    },
+    "trace-lab.txt": {
+      "bytes": 9518,
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "8299a4b050301e2e8dc03f0263226a79d2f8edf25cc5b54c1156bc2c2832208e"
+    }
+  },
+  "capture": {
+    "execution": {
+      "bootstrap_sha256": "8f58a986c24b376917597f835032450cbb81a2dd4a8ef337d2c9ecdd4dae3e4d",
+      "dependency_imports": "plain interpreter purelib/platlib paths; absolute paths excluded",
+      "module": "k2do.labs.deepthink_trace",
+      "python_flags": [
+        "-I",
+        "-S",
+        "-B"
+      ],
+      "snapshot": "private materialization of committed HEAD; absolute path excluded"
+    },
+    "network_observation": {
+      "communication_syscall_count": 0,
+      "scope": "one Linux strace run of the offline lab and all child threads; local event-loop socketpair creation is outside this communication-syscall set",
+      "status": "no_communication_syscalls_observed",
+      "syscalls": [
+        "socket",
+        "bind",
+        "listen",
+        "connect",
+        "accept",
+        "accept4",
+        "sendto",
+        "sendmsg",
+        "recvfrom",
+        "recvmsg"
+      ],
+      "tool": "strace -- version 6.8"
+    },
+    "reader_command": [
+      "python",
+      "-m",
+      "k2do.labs.deepthink_trace"
+    ],
+    "receipt_sha256": "f66e1db30dd79d77318a20ae86a0aa450a663e8f5cdff351557ca6fd1d0da80d",
+    "runtime": {
+      "architecture": "x86_64",
+      "dependency_environment_locked": false,
+      "environment_claim": "runtime versions are recorded; the dependency environment is not lock-reproduced",
+      "k2do_distribution_version": "1.0.0",
+      "operating_system": "Linux",
+      "python_implementation": "CPython",
+      "python_version": "3.12.13"
+    },
+    "stdout_bytes": 9480
+  },
+  "schema": "k2do.trace-evidence-manifest/v1",
+  "source": {
+    "commit": "99cc6f308be980cbdb9965393ce042abf86378b5",
+    "files": {
+      "k2do/__init__.py": {
+        "bytes": 137,
+        "git_blob": "bfe866abdcb59a3d629842ec90dbc206e411af57",
+        "git_mode": "100644",
+        "sha256": "012ccfe60d9d02db05f058715f7e8e3732d14c6301ca249e96c7252c5ff46c6d"
+      },
+      "k2do/agent/__init__.py": {
+        "bytes": 73,
+        "git_blob": "e37ab326dbc59a91efbfc94f76b730158296a745",
+        "git_mode": "100644",
+        "sha256": "232d3915fac96e5a002ddd83188749c48f2ab295f9be36372624dae9ac3b4b28"
+      },
+      "k2do/agent/deepthink.py": {
+        "bytes": 13334,
+        "git_blob": "64977a6b5fbc3e3a2857600a41e84469fd6d907f",
+        "git_mode": "100644",
+        "sha256": "efa7d2043181c00f0b6aa93fd239c40a3837365334adc3eeda75791bb78d43de"
+      },
+      "k2do/agent/router.py": {
+        "bytes": 4711,
+        "git_blob": "2d27049b0bce003345478dc624ba585af5800a1c",
+        "git_mode": "100644",
+        "sha256": "9367eca7d553d4c0a6adca791fa543b0c39f5d0a3fa0a862ec330b59a18789ed"
+      },
+      "k2do/labs/__init__.py": {
+        "bytes": 73,
+        "git_blob": "7daf20011ab1a91b092d2840a0ac1d820959643e",
+        "git_mode": "100644",
+        "sha256": "2e6e3ca8ec1a317ed1bfbb74457aa0968d7e215615693176fb05bd5cfeca5168"
+      },
+      "k2do/labs/deepthink_trace.py": {
+        "bytes": 49410,
+        "git_blob": "7564b37b85ed2a4c572cf14cd3c98d77c639ed23",
+        "git_mode": "100644",
+        "sha256": "f7ddaaf0b0c05a688d160889ef1f6ac87864a03d8c4bbd317d9ef7aac2c1d74b"
+      },
+      "k2do/labs/trace_evidence_recorder.py": {
+        "bytes": 69852,
+        "git_blob": "c0f1c22927ef65c7c1a5ac0cb157916fdef24276",
+        "git_mode": "100644",
+        "sha256": "f44fe77aa7785501524156c200e92088dee37fb36be981444590a33d68198d62"
+      },
+      "k2do/providers/__init__.py": {
+        "bytes": 139,
+        "git_blob": "578e728ee1feb4c7a205ad1a905c335c386c3e34",
+        "git_mode": "100644",
+        "sha256": "7c8c571c838e3933061902197aca0b92fb9c9d13fa371a19a70e0f63ba43b368"
+      },
+      "k2do/providers/base.py": {
+        "bytes": 1967,
+        "git_blob": "c69c38be067721fba87097f808eec7d585b51b59",
+        "git_mode": "100644",
+        "sha256": "ebc5be69a32a7f22a2118e3dc3a952e59d7d000dc19ecd9e78f5a93a4001221c"
+      },
+      "pyproject.toml": {
+        "bytes": 1701,
+        "git_blob": "f76179b0f450d7e1e5d430d316f83b74eb0753c0",
+        "git_mode": "100644",
+        "sha256": "9701534c68a04d0896ce56e0bc5fa259f6efeb18c7516de1ba7511adf4512a14"
+      }
+    },
+    "tree": "ba1a927d0be5c9d6362facb00765aeccb1b9e642",
+    "verification": "current committed blob identities and content hashes; no ancestry requirement"
+  }
+}

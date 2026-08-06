@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1540" height="2998" viewBox="0 0 1540 2998" role="img" aria-labelledby="visual-title visual-description">
+  <title id="visual-title">K2DO routed handoff CLI capture</title>
+  <desc id="visual-description">A line-for-line rendering of the captured agent_handoff_trace stdout. The matching text artifact preserves the exact bytes.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#10233f"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#020617" flood-opacity=".42"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7dd3fc"/>
+    </marker>
+  </defs>
+  <rect width="1540" height="2998" rx="24" fill="url(#background)"/>
+  <style>
+    .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+  </style>
+  <g filter="url(#shadow)">
+    <rect x="28" y="28" width="1484" height="2942" rx="18" fill="#020617" stroke="#334155"/>
+    <rect x="28" y="28" width="1484" height="54" rx="18" fill="#111c2f"/>
+    <rect x="28" y="64" width="1484" height="18" fill="#111c2f"/>
+    <circle cx="62" cy="55" r="7" fill="#fb7185"/>
+    <circle cx="86" cy="55" r="7" fill="#fbbf24"/>
+    <circle cx="110" cy="55" r="7" fill="#4ade80"/>
+    <text x="770" y="62" text-anchor="middle" class="sans" font-size="16" fill="#94a3b8">exact captured stdout · canonical offline receipt</text>
+<text x="62" y="112" class="mono" font-size="15" fill="#86efac">$ python -m k2do.labs.agent_handoff_trace</text>
+<text x="62" y="134" class="mono" font-size="15" fill="#dbeafe">{</text>
+<text x="62" y="156" class="mono" font-size="15" fill="#dbeafe">  &quot;cleanup&quot;: {</text>
+<text x="62" y="178" class="mono" font-size="15" fill="#dbeafe">    &quot;active_provider_calls&quot;: 0,</text>
+<text x="62" y="200" class="mono" font-size="15" fill="#dbeafe">    &quot;temporary_workspace&quot;: &quot;removed&quot;</text>
+<text x="62" y="222" class="mono" font-size="15" fill="#dbeafe">  },</text>
+<text x="62" y="244" class="mono" font-size="15" fill="#dbeafe">  &quot;deepthink&quot;: {</text>
+<text x="62" y="266" class="mono" font-size="15" fill="#dbeafe">    &quot;judge_gate&quot;: &quot;after_all_thinkers_terminal&quot;,</text>
+<text x="62" y="288" class="mono" font-size="15" fill="#dbeafe">    &quot;provider_peak_calls&quot;: 3,</text>
+<text x="62" y="310" class="mono" font-size="15" fill="#fbbf24">    &quot;request_contract_sha256&quot;: &quot;2252fa43489c761045dceba4949a3e15ebfca0d655e1d48458d2444c6eb8846f&quot;,</text>
+<text x="62" y="332" class="mono" font-size="15" fill="#dbeafe">    &quot;selected&quot;: &quot;pragmatist&quot;,</text>
+<text x="62" y="354" class="mono" font-size="15" fill="#dbeafe">    &quot;thinker_count&quot;: 3</text>
+<text x="62" y="376" class="mono" font-size="15" fill="#dbeafe">  },</text>
+<text x="62" y="398" class="mono" font-size="15" fill="#dbeafe">  &quot;evidence_boundary&quot;: {</text>
+<text x="62" y="420" class="mono" font-size="15" fill="#dbeafe">    &quot;external_credentials&quot;: &quot;not_required&quot;,</text>
+<text x="62" y="442" class="mono" font-size="15" fill="#dbeafe">    &quot;model_payloads&quot;: &quot;digests_labels_and_counts_only&quot;,</text>
+<text x="62" y="464" class="mono" font-size="15" fill="#dbeafe">    &quot;network_provider&quot;: &quot;not_used&quot;,</text>
+<text x="62" y="486" class="mono" font-size="15" fill="#dbeafe">    &quot;network_tools&quot;: &quot;not_invoked&quot;,</text>
+<text x="62" y="508" class="mono" font-size="15" fill="#dbeafe">    &quot;provider&quot;: &quot;strict_scripted_fake&quot;,</text>
+<text x="62" y="530" class="mono" font-size="15" fill="#dbeafe">    &quot;workspace&quot;: &quot;temporary_and_removed&quot;</text>
+<text x="62" y="552" class="mono" font-size="15" fill="#dbeafe">  },</text>
+<text x="62" y="574" class="mono" font-size="15" fill="#dbeafe">  &quot;handoff&quot;: {</text>
+<text x="62" y="596" class="mono" font-size="15" fill="#dbeafe">    &quot;artifact&quot;: {</text>
+<text x="62" y="618" class="mono" font-size="15" fill="#dbeafe">      &quot;bytes&quot;: 32,</text>
+<text x="62" y="640" class="mono" font-size="15" fill="#dbeafe">      &quot;kind&quot;: &quot;text_file&quot;,</text>
+<text x="62" y="662" class="mono" font-size="15" fill="#dbeafe">      &quot;relative_path&quot;: &quot;artifacts/handoff-proof.txt&quot;,</text>
+<text x="62" y="684" class="mono" font-size="15" fill="#fbbf24">      &quot;sha256&quot;: &quot;20a71c189d06d0b06b582a41bd99b4c69a23ca161b4a887ce0a98467d3e13362&quot;</text>
+<text x="62" y="706" class="mono" font-size="15" fill="#dbeafe">    },</text>
+<text x="62" y="728" class="mono" font-size="15" fill="#dbeafe">    &quot;execution_provider_turns&quot;: 3,</text>
+<text x="62" y="750" class="mono" font-size="15" fill="#fbbf24">    &quot;final_result_sha256&quot;: &quot;0c50d69a6dc2987bdc1cf48dafb3c04c29217549b7d9f961ec738911f1a3cf95&quot;,</text>
+<text x="62" y="772" class="mono" font-size="15" fill="#fbbf24">    &quot;message_contract_sha256&quot;: &quot;33c9ff17bbe9f5c62118eb86bb9d1476c5ce3e8addf60c9bc2305977b447ae3b&quot;,</text>
+<text x="62" y="794" class="mono" font-size="15" fill="#fbbf24">    &quot;tool_catalog_sha256&quot;: &quot;2efa9413d254a7d3bb210c6caee2bfdac36ee40e43b2120c7d3c9be333dbbb93&quot;,</text>
+<text x="62" y="816" class="mono" font-size="15" fill="#dbeafe">    &quot;tool_sequence&quot;: [</text>
+<text x="62" y="838" class="mono" font-size="15" fill="#dbeafe">      &quot;write_file&quot;,</text>
+<text x="62" y="860" class="mono" font-size="15" fill="#dbeafe">      &quot;read_file&quot;</text>
+<text x="62" y="882" class="mono" font-size="15" fill="#dbeafe">    ]</text>
+<text x="62" y="904" class="mono" font-size="15" fill="#dbeafe">  },</text>
+<text x="62" y="926" class="mono" font-size="15" fill="#dbeafe">  &quot;message_bus&quot;: {</text>
+<text x="62" y="948" class="mono" font-size="15" fill="#dbeafe">    &quot;inbound_messages&quot;: 1,</text>
+<text x="62" y="970" class="mono" font-size="15" fill="#dbeafe">    &quot;outbound_messages&quot;: 1,</text>
+<text x="62" y="992" class="mono" font-size="15" fill="#dbeafe">    &quot;queues&quot;: &quot;drained&quot;</text>
+<text x="62" y="1014" class="mono" font-size="15" fill="#dbeafe">  },</text>
+<text x="62" y="1036" class="mono" font-size="15" fill="#dbeafe">  &quot;production_surface&quot;: [</text>
+<text x="62" y="1058" class="mono" font-size="15" fill="#dbeafe">    &quot;agent_loop._process_message&quot;,</text>
+<text x="62" y="1080" class="mono" font-size="15" fill="#dbeafe">    &quot;context.build_messages&quot;,</text>
+<text x="62" y="1102" class="mono" font-size="15" fill="#dbeafe">    &quot;deepthink.parallel_thinkers&quot;,</text>
+<text x="62" y="1124" class="mono" font-size="15" fill="#dbeafe">    &quot;message_bus.round_trip&quot;,</text>
+<text x="62" y="1146" class="mono" font-size="15" fill="#dbeafe">    &quot;router.classify_query&quot;,</text>
+<text x="62" y="1168" class="mono" font-size="15" fill="#dbeafe">    &quot;session.persistence&quot;,</text>
+<text x="62" y="1190" class="mono" font-size="15" fill="#dbeafe">    &quot;tools.read_file&quot;,</text>
+<text x="62" y="1212" class="mono" font-size="15" fill="#dbeafe">    &quot;tools.write_file&quot;</text>
+<text x="62" y="1234" class="mono" font-size="15" fill="#dbeafe">  ],</text>
+<text x="62" y="1256" class="mono" font-size="15" fill="#dbeafe">  &quot;route&quot;: {</text>
+<text x="62" y="1278" class="mono" font-size="15" fill="#dbeafe">    &quot;classification&quot;: &quot;deepthink&quot;,</text>
+<text x="62" y="1300" class="mono" font-size="15" fill="#dbeafe">    &quot;complexity_threshold&quot;: 0.6,</text>
+<text x="62" y="1322" class="mono" font-size="15" fill="#fbbf24">    &quot;input_sha256&quot;: &quot;2a4cbcdcdc8884d7e48750d70c407174632ea5225856f50430474011864fa58c&quot;</text>
+<text x="62" y="1344" class="mono" font-size="15" fill="#dbeafe">  },</text>
+<text x="62" y="1366" class="mono" font-size="15" fill="#dbeafe">  &quot;schema&quot;: &quot;k2do.agent-handoff-trace/v1&quot;,</text>
+<text x="62" y="1388" class="mono" font-size="15" fill="#dbeafe">  &quot;session&quot;: {</text>
+<text x="62" y="1410" class="mono" font-size="15" fill="#dbeafe">    &quot;message_roles&quot;: [</text>
+<text x="62" y="1432" class="mono" font-size="15" fill="#dbeafe">      &quot;user&quot;,</text>
+<text x="62" y="1454" class="mono" font-size="15" fill="#dbeafe">      &quot;assistant&quot;</text>
+<text x="62" y="1476" class="mono" font-size="15" fill="#dbeafe">    ],</text>
+<text x="62" y="1498" class="mono" font-size="15" fill="#fbbf24">    &quot;normalized_record_sha256&quot;: &quot;d19f4de04354698c40b4130620558665c305f61ce9066d5b4ffe1d013804769f&quot;,</text>
+<text x="62" y="1520" class="mono" font-size="15" fill="#7dd3fc">    &quot;persisted&quot;: true,</text>
+<text x="62" y="1542" class="mono" font-size="15" fill="#dbeafe">    &quot;timestamp_fields&quot;: &quot;validated_then_normalized&quot;,</text>
+<text x="62" y="1564" class="mono" font-size="15" fill="#dbeafe">    &quot;tools_used&quot;: [</text>
+<text x="62" y="1586" class="mono" font-size="15" fill="#dbeafe">      &quot;deepthink&quot;,</text>
+<text x="62" y="1608" class="mono" font-size="15" fill="#dbeafe">      &quot;write_file&quot;,</text>
+<text x="62" y="1630" class="mono" font-size="15" fill="#dbeafe">      &quot;read_file&quot;</text>
+<text x="62" y="1652" class="mono" font-size="15" fill="#dbeafe">    ]</text>
+<text x="62" y="1674" class="mono" font-size="15" fill="#dbeafe">  },</text>
+<text x="62" y="1696" class="mono" font-size="15" fill="#7dd3fc">  &quot;status&quot;: &quot;verified&quot;,</text>
+<text x="62" y="1718" class="mono" font-size="15" fill="#dbeafe">  &quot;workflow&quot;: {</text>
+<text x="62" y="1740" class="mono" font-size="15" fill="#dbeafe">    &quot;edges&quot;: [</text>
+<text x="62" y="1762" class="mono" font-size="15" fill="#dbeafe">      {</text>
+<text x="62" y="1784" class="mono" font-size="15" fill="#dbeafe">        &quot;from&quot;: &quot;message_bus.inbound&quot;,</text>
+<text x="62" y="1806" class="mono" font-size="15" fill="#dbeafe">        &quot;relation&quot;: &quot;then&quot;,</text>
+<text x="62" y="1828" class="mono" font-size="15" fill="#dbeafe">        &quot;to&quot;: &quot;router.deepthink&quot;</text>
+<text x="62" y="1850" class="mono" font-size="15" fill="#dbeafe">      },</text>
+<text x="62" y="1872" class="mono" font-size="15" fill="#dbeafe">      {</text>
+<text x="62" y="1894" class="mono" font-size="15" fill="#dbeafe">        &quot;from&quot;: &quot;router.deepthink&quot;,</text>
+<text x="62" y="1916" class="mono" font-size="15" fill="#dbeafe">        &quot;relation&quot;: &quot;then&quot;,</text>
+<text x="62" y="1938" class="mono" font-size="15" fill="#dbeafe">        &quot;to&quot;: &quot;thinkers.parallel&quot;</text>
+<text x="62" y="1960" class="mono" font-size="15" fill="#dbeafe">      },</text>
+<text x="62" y="1982" class="mono" font-size="15" fill="#dbeafe">      {</text>
+<text x="62" y="2004" class="mono" font-size="15" fill="#dbeafe">        &quot;from&quot;: &quot;thinkers.parallel&quot;,</text>
+<text x="62" y="2026" class="mono" font-size="15" fill="#dbeafe">        &quot;relation&quot;: &quot;then&quot;,</text>
+<text x="62" y="2048" class="mono" font-size="15" fill="#dbeafe">        &quot;to&quot;: &quot;judge.synthesis&quot;</text>
+<text x="62" y="2070" class="mono" font-size="15" fill="#dbeafe">      },</text>
+<text x="62" y="2092" class="mono" font-size="15" fill="#dbeafe">      {</text>
+<text x="62" y="2114" class="mono" font-size="15" fill="#dbeafe">        &quot;from&quot;: &quot;judge.synthesis&quot;,</text>
+<text x="62" y="2136" class="mono" font-size="15" fill="#dbeafe">        &quot;relation&quot;: &quot;then&quot;,</text>
+<text x="62" y="2158" class="mono" font-size="15" fill="#dbeafe">        &quot;to&quot;: &quot;agent_loop.handoff&quot;</text>
+<text x="62" y="2180" class="mono" font-size="15" fill="#dbeafe">      },</text>
+<text x="62" y="2202" class="mono" font-size="15" fill="#dbeafe">      {</text>
+<text x="62" y="2224" class="mono" font-size="15" fill="#dbeafe">        &quot;from&quot;: &quot;agent_loop.handoff&quot;,</text>
+<text x="62" y="2246" class="mono" font-size="15" fill="#dbeafe">        &quot;relation&quot;: &quot;then&quot;,</text>
+<text x="62" y="2268" class="mono" font-size="15" fill="#dbeafe">        &quot;to&quot;: &quot;tool.write_file&quot;</text>
+<text x="62" y="2290" class="mono" font-size="15" fill="#dbeafe">      },</text>
+<text x="62" y="2312" class="mono" font-size="15" fill="#dbeafe">      {</text>
+<text x="62" y="2334" class="mono" font-size="15" fill="#dbeafe">        &quot;from&quot;: &quot;tool.write_file&quot;,</text>
+<text x="62" y="2356" class="mono" font-size="15" fill="#dbeafe">        &quot;relation&quot;: &quot;then&quot;,</text>
+<text x="62" y="2378" class="mono" font-size="15" fill="#dbeafe">        &quot;to&quot;: &quot;tool.read_file&quot;</text>
+<text x="62" y="2400" class="mono" font-size="15" fill="#dbeafe">      },</text>
+<text x="62" y="2422" class="mono" font-size="15" fill="#dbeafe">      {</text>
+<text x="62" y="2444" class="mono" font-size="15" fill="#dbeafe">        &quot;from&quot;: &quot;tool.read_file&quot;,</text>
+<text x="62" y="2466" class="mono" font-size="15" fill="#dbeafe">        &quot;relation&quot;: &quot;then&quot;,</text>
+<text x="62" y="2488" class="mono" font-size="15" fill="#dbeafe">        &quot;to&quot;: &quot;session.persist&quot;</text>
+<text x="62" y="2510" class="mono" font-size="15" fill="#dbeafe">      },</text>
+<text x="62" y="2532" class="mono" font-size="15" fill="#dbeafe">      {</text>
+<text x="62" y="2554" class="mono" font-size="15" fill="#dbeafe">        &quot;from&quot;: &quot;session.persist&quot;,</text>
+<text x="62" y="2576" class="mono" font-size="15" fill="#dbeafe">        &quot;relation&quot;: &quot;then&quot;,</text>
+<text x="62" y="2598" class="mono" font-size="15" fill="#dbeafe">        &quot;to&quot;: &quot;message_bus.outbound&quot;</text>
+<text x="62" y="2620" class="mono" font-size="15" fill="#dbeafe">      }</text>
+<text x="62" y="2642" class="mono" font-size="15" fill="#dbeafe">    ],</text>
+<text x="62" y="2664" class="mono" font-size="15" fill="#dbeafe">    &quot;nodes&quot;: [</text>
+<text x="62" y="2686" class="mono" font-size="15" fill="#dbeafe">      &quot;message_bus.inbound&quot;,</text>
+<text x="62" y="2708" class="mono" font-size="15" fill="#dbeafe">      &quot;router.deepthink&quot;,</text>
+<text x="62" y="2730" class="mono" font-size="15" fill="#dbeafe">      &quot;thinkers.parallel&quot;,</text>
+<text x="62" y="2752" class="mono" font-size="15" fill="#dbeafe">      &quot;judge.synthesis&quot;,</text>
+<text x="62" y="2774" class="mono" font-size="15" fill="#dbeafe">      &quot;agent_loop.handoff&quot;,</text>
+<text x="62" y="2796" class="mono" font-size="15" fill="#dbeafe">      &quot;tool.write_file&quot;,</text>
+<text x="62" y="2818" class="mono" font-size="15" fill="#dbeafe">      &quot;tool.read_file&quot;,</text>
+<text x="62" y="2840" class="mono" font-size="15" fill="#dbeafe">      &quot;session.persist&quot;,</text>
+<text x="62" y="2862" class="mono" font-size="15" fill="#dbeafe">      &quot;message_bus.outbound&quot;</text>
+<text x="62" y="2884" class="mono" font-size="15" fill="#dbeafe">    ]</text>
+<text x="62" y="2906" class="mono" font-size="15" fill="#dbeafe">  }</text>
+<text x="62" y="2928" class="mono" font-size="15" fill="#dbeafe">}</text>
+  </g>
+</svg>
