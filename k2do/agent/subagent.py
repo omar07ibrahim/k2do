@@ -54,6 +54,8 @@ class SubagentManager:
         self.exec_config = exec_config or ExecToolConfig()
         self.restrict_to_workspace = restrict_to_workspace
         self._running_tasks: dict[str, asyncio.Task[None]] = {}
+        self._closed = False
+        self._close_task: asyncio.Task[None] | None = None
     
     async def spawn(
         self,
@@ -74,6 +76,9 @@ class SubagentManager:
         Returns:
             Status message indicating the subagent was started.
         """
+        if self._closed:
+            raise RuntimeError("Subagent manager is closed")
+
         task_id = str(uuid.uuid4())[:8]
         display_label = label or task[:30] + ("..." if len(task) > 30 else "")
         
@@ -89,10 +94,49 @@ class SubagentManager:
         self._running_tasks[task_id] = bg_task
         
         # Cleanup when done
-        bg_task.add_done_callback(lambda _: self._running_tasks.pop(task_id, None))
+        def discard_completed_task(done_task: asyncio.Task[None]) -> None:
+            if self._running_tasks.get(task_id) is done_task:
+                self._running_tasks.pop(task_id, None)
+
+        bg_task.add_done_callback(discard_completed_task)
         
-        logger.info(f"Spawned subagent [{task_id}]: {display_label}")
+        logger.info(f"Spawned subagent [{task_id}]")
         return f"Subagent [{display_label}] started (id: {task_id}). I'll notify you when it completes."
+
+    async def aclose(self) -> None:
+        """Cancel and await the bounded set of active subagent tasks.
+
+        Closing is permanent: rejecting later spawns keeps the shutdown snapshot
+        finite.  The drain task is shielded so cancellation of one caller is
+        preserved without abandoning worker teardown; another call can await the
+        same drain operation.
+        """
+        self._closed = True
+        if self._close_task is None:
+            self._close_task = asyncio.create_task(
+                self._drain_running_tasks(),
+                name="k2do-subagent-shutdown",
+            )
+
+        await asyncio.shield(self._close_task)
+
+    async def _drain_running_tasks(self) -> None:
+        """Cancel one stable task snapshot and wait for every task to finish."""
+        snapshot = tuple(self._running_tasks.items())
+        for _, task in snapshot:
+            task.cancel()
+
+        if snapshot:
+            await asyncio.gather(
+                *(task for _, task in snapshot),
+                return_exceptions=True,
+            )
+
+        # Done callbacks may already have changed the dictionary.  Identity
+        # checks prevent an old callback/drain from deleting a replacement.
+        for task_id, task in snapshot:
+            if self._running_tasks.get(task_id) is task:
+                self._running_tasks.pop(task_id, None)
     
     async def _run_subagent(
         self,
@@ -102,7 +146,7 @@ class SubagentManager:
         origin: dict[str, str],
     ) -> None:
         """Execute the subagent task and announce the result."""
-        logger.info(f"Subagent [{task_id}] starting task: {label}")
+        logger.info(f"Subagent [{task_id}] starting task")
         
         try:
             # Build subagent tools (no message tool, no spawn tool)
@@ -163,8 +207,10 @@ class SubagentManager:
                     
                     # Execute tools
                     for tool_call in response.tool_calls:
-                        args_str = json.dumps(tool_call.arguments)
-                        logger.debug(f"Subagent [{task_id}] executing: {tool_call.name} with arguments: {args_str}")
+                        logger.debug(
+                            f"Subagent [{task_id}] executing {tool_call.name} "
+                            f"with {len(tool_call.arguments)} argument(s); values redacted"
+                        )
                         result = await tools.execute(tool_call.name, tool_call.arguments)
                         messages.append({
                             "role": "tool",
@@ -181,11 +227,20 @@ class SubagentManager:
             
             logger.info(f"Subagent [{task_id}] completed successfully")
             await self._announce_result(task_id, label, task, final_result, origin, "ok")
-            
+
+        except asyncio.CancelledError:
+            logger.debug(f"Subagent [{task_id}] cancelled")
+            raise
         except Exception as e:
-            error_msg = f"Error: {str(e)}"
-            logger.error(f"Subagent [{task_id}] failed: {e}")
-            await self._announce_result(task_id, label, task, error_msg, origin, "error")
+            logger.error(f"Subagent [{task_id}] failed ({type(e).__name__})")
+            await self._announce_result(
+                task_id,
+                label,
+                task,
+                "The background task failed before producing a safe result.",
+                origin,
+                "error",
+            )
 
     async def _chat_with_fallback(
         self,
@@ -216,10 +271,14 @@ class SubagentManager:
                         continue
                     if idx < len(model_order) - 1:
                         logger.warning(
-                            f"Subagent model call failed on {selected_model}, retrying fallback: {e}"
+                            f"Subagent model call failed on {selected_model}; "
+                            f"retrying fallback ({type(e).__name__})"
                         )
                     else:
-                        logger.error(f"Subagent model call failed on {selected_model}: {e}")
+                        logger.error(
+                            f"Subagent model call failed on {selected_model} "
+                            f"({type(e).__name__})"
+                        )
 
         raise RuntimeError("Subagent model backend unavailable after retry") from last_error
     
@@ -253,7 +312,7 @@ Summarize this naturally for the user. Keep it brief (1-2 sentences). Do not men
         )
         
         await self.bus.publish_inbound(msg)
-        logger.debug(f"Subagent [{task_id}] announced result to {origin['channel']}:{origin['chat_id']}")
+        logger.debug(f"Subagent [{task_id}] announced result")
     
     def _build_subagent_prompt(self, task: str) -> str:
         """Build a focused system prompt for the subagent."""

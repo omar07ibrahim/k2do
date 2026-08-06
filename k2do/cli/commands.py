@@ -1,27 +1,27 @@
 """CLI commands for K2DO — AI Agent with DeepThink."""
 
 import asyncio
+import inspect
 import os
-import signal
-from pathlib import Path
 import select
 import sys
+from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 import typer
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.text import Text
-from rich.panel import Panel
-from rich.table import Table
-from rich.live import Live
-from rich import box
-
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
+from rich import box
+from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
-from k2do import __version__, __logo__
+from k2do import __logo__, __version__
 from k2do.config.schema import Config
 
 app = typer.Typer(
@@ -32,6 +32,7 @@ app = typer.Typer(
 
 console = Console()
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit", ":q"}
+GatewayCleanupStep = tuple[str, Callable[[], Awaitable[None] | None]]
 
 # ---------------------------------------------------------------------------
 # CLI input helpers
@@ -39,6 +40,20 @@ EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit", ":q"}
 
 _PROMPT_SESSION: PromptSession | None = None
 _SAVED_TERM_ATTRS = None
+
+
+def _interactive_route(command: str) -> str:
+    """Return the route shown by the dashboard for an entered command."""
+    from k2do.agent.router import classify_query
+
+    lowered = command.lower()
+    if lowered.startswith("/deepthink "):
+        return "deepthink"
+    if lowered.startswith("/refine "):
+        return "refine"
+    if lowered == "/mcp" or (lowered.startswith("/mcp") and lowered[4:5].isspace()):
+        return "mcp"
+    return classify_query(command)
 
 
 def _flush_pending_tty_input() -> None:
@@ -73,6 +88,83 @@ def _restore_terminal() -> None:
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, _SAVED_TERM_ATTRS)
     except Exception:
         pass
+
+
+async def _capture_cleanup_error(awaitable: Awaitable[None]) -> BaseException | None:
+    """Keep child ``BaseException`` instances from escaping their owner task."""
+    try:
+        await awaitable
+    except BaseException as exc:
+        return exc
+    return None
+
+
+async def _run_gateway_cleanup(
+    primary_error: BaseException | None,
+    steps: tuple[GatewayCleanupStep, ...],
+) -> None:
+    """Run every gateway cleanup step and preserve all resulting failures.
+
+    Repeated ``CancelledError`` instances caused by one caller cancellation are
+    represented by the first cancellation only.  With no independent cleanup
+    failure, that cancellation remains a plain ``CancelledError`` rather than
+    being wrapped in a group.
+    """
+    errors: list[BaseException] = []
+    caller_cancellation: asyncio.CancelledError | None = None
+    if primary_error is not None:
+        errors.append(primary_error)
+        if isinstance(primary_error, asyncio.CancelledError):
+            caller_cancellation = primary_error
+
+    current = asyncio.current_task()
+
+    for name, step in steps:
+        try:
+            result = step()
+            if inspect.isawaitable(result):
+                cleanup = asyncio.create_task(_capture_cleanup_error(result))
+                while not cleanup.done():
+                    cancelling_before = current.cancelling() if current is not None else 0
+                    try:
+                        await asyncio.shield(cleanup)
+                    except asyncio.CancelledError as exc:
+                        cancelling_after = current.cancelling() if current is not None else 0
+                        # A shield only raises before its child is terminal when
+                        # the caller was cancelled.  The count comparison also
+                        # covers the race where both become terminal together.
+                        caller_was_cancelled = (
+                            not cleanup.done()
+                            or cancelling_after > cancelling_before
+                        )
+                        if caller_was_cancelled:
+                            if caller_cancellation is None:
+                                caller_cancellation = exc
+                                errors.append(exc)
+                            continue
+                        break
+
+                cleanup_error = cleanup.result()
+                if cleanup_error is not None:
+                    cleanup_error.add_note(f"Gateway cleanup step failed: {name}")
+                    errors.append(cleanup_error)
+        except asyncio.CancelledError as exc:
+            # A synchronous cleanup cannot be interrupted at an await point,
+            # so a cancellation raised here belongs to that cleanup step.
+            exc.add_note(f"Gateway cleanup step failed: {name}")
+            errors.append(exc)
+        except BaseException as exc:
+            exc.add_note(f"Gateway cleanup step failed: {name}")
+            errors.append(exc)
+
+    if not errors:
+        return
+    if len(errors) == 1:
+        raise errors[0]
+    raise BaseExceptionGroup(
+        "Gateway execution and cleanup failed",
+        errors,
+    ) from None
 
 
 def _init_prompt_session() -> None:
@@ -232,6 +324,7 @@ def onboard():
     console.print("     (providers.k2Think.apiBase should be [cyan]https://build-api.k2think.ai/v1[/cyan])")
     console.print("  2. Chat: [cyan]k2do agent -m \"Hello!\"[/cyan]")
     console.print("  3. DeepThink: [cyan]k2do agent[/cyan] then type [cyan]/deepthink <question>[/cyan]")
+    console.print("  4. Isolated MCP: [cyan]k2do agent[/cyan] then type [cyan]/mcp <request>[/cyan]")
 
 
 def _create_workspace_templates(workspace: Path):
@@ -352,14 +445,14 @@ def gateway(
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ):
     """Start K2DO gateway with all channels."""
-    from k2do.config.loader import load_config, get_data_dir
-    from k2do.bus.queue import MessageBus
     from k2do.agent.loop import AgentLoop
+    from k2do.bus.queue import MessageBus
     from k2do.channels.manager import ChannelManager
-    from k2do.session.manager import SessionManager
+    from k2do.config.loader import get_data_dir, load_config
     from k2do.cron.service import CronService
     from k2do.cron.types import CronJob
     from k2do.heartbeat.service import HeartbeatService
+    from k2do.session.manager import SessionManager
 
     if verbose:
         import logging
@@ -468,29 +561,54 @@ def gateway(
 
     async def run():
         health_server: asyncio.AbstractServer | None = None
+        gateway_error: BaseException | None = None
         try:
-            health_server = await asyncio.start_server(
-                _health_handler,
-                host=host,
-                port=effective_port,
-            )
-            console.print(f"[green]OK[/green] Health endpoint: http://{host}:{effective_port}/")
-            await cron.start()
-            await heartbeat.start()
-            await asyncio.gather(agent.run(), channels.start_all())
-        except KeyboardInterrupt:
-            console.print("\nShutting down...")
-        finally:
-            if health_server:
-                health_server.close()
-                await health_server.wait_closed()
-            await agent.close_mcp()
-            heartbeat.stop()
-            cron.stop()
-            agent.stop()
-            await channels.stop_all()
+            async with agent.mcp_lifespan():
+                body_error: BaseException | None = None
+                try:
+                    health_server = await asyncio.start_server(
+                        _health_handler,
+                        host=host,
+                        port=effective_port,
+                    )
+                    console.print(
+                        f"[green]OK[/green] Health endpoint: "
+                        f"http://{host}:{effective_port}/"
+                    )
+                    await cron.start()
+                    await heartbeat.start()
+                    async with asyncio.TaskGroup() as tasks:
+                        tasks.create_task(agent.run())
+                        tasks.create_task(channels.start_all())
+                except BaseException as exc:
+                    body_error = exc
 
-    asyncio.run(run())
+                await _run_gateway_cleanup(
+                    body_error,
+                    (
+                        ("heartbeat.stop", heartbeat.stop),
+                        ("cron.stop", cron.stop),
+                        ("heartbeat.aclose", heartbeat.aclose),
+                        ("cron.aclose", cron.aclose),
+                        ("agent.aclose", agent.aclose),
+                        ("channels.stop_all", channels.stop_all),
+                    ),
+                )
+        except BaseException as exc:
+            gateway_error = exc
+
+        health_steps: tuple[GatewayCleanupStep, ...] = ()
+        if health_server is not None:
+            health_steps = (
+                ("health_server.close", health_server.close),
+                ("health_server.wait_closed", health_server.wait_closed),
+            )
+        await _run_gateway_cleanup(gateway_error, health_steps)
+
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        console.print("\nShutting down...")
 
 
 # ============================================================================
@@ -507,12 +625,15 @@ def agent(
     dashboard_mode: bool = typer.Option(False, "--dashboard", "-d", help="Full-screen dashboard mode"),
 ):
     """Chat with K2DO agent."""
-    from k2do.config.loader import load_config
-    from k2do.bus.queue import MessageBus
-    from k2do.agent.loop import AgentLoop
-    from k2do.cli.dashboard import Dashboard, DashboardState
-    from loguru import logger
     import time as _time
+    from contextlib import asynccontextmanager
+
+    from loguru import logger
+
+    from k2do.agent.loop import AgentLoop
+    from k2do.bus.queue import MessageBus
+    from k2do.cli.dashboard import Dashboard, DashboardState
+    from k2do.config.loader import load_config
 
     config = load_config()
     bus = MessageBus()
@@ -596,13 +717,37 @@ def agent(
             dt_display.stop()
             dt_display = None
 
+    def _cleanup_interactive_ui() -> None:
+        _finish_overlays()
+        if dash:
+            dash.stop()
+        _restore_terminal()
+
+    @asynccontextmanager
+    async def _interactive_ui_lifespan():
+        try:
+            yield
+        finally:
+            _cleanup_interactive_ui()
+
     if message:
         async def run_once():
-            with _thinking_ctx():
-                response = await agent_loop.process_direct(message, session_id)
-            _finish_overlays()
+            body_error: BaseException | None = None
+            response = ""
+            try:
+                async with agent_loop.mcp_lifespan():
+                    with _thinking_ctx():
+                        response = await agent_loop.process_direct(message, session_id)
+            except BaseException as exc:
+                body_error = exc
+            await _run_gateway_cleanup(
+                body_error,
+                (
+                    ("interactive overlays", _finish_overlays),
+                    ("agent.aclose", agent_loop.aclose),
+                ),
+            )
             _print_agent_response(response, markdown, agent_loop._last_route, agent_loop._last_complexity)
-            await agent_loop.close_mcp()
         asyncio.run(run_once())
     else:
         _init_prompt_session()
@@ -617,97 +762,89 @@ def agent(
                 f"[dim]DeepThink: {'ON' if not no_deepthink else 'OFF'} | "
                 f"[bold]/deepthink[/bold] multi-agent | "
                 f"[bold]/refine[/bold] 3-round refinement | "
+                f"[bold]/mcp[/bold] isolated retrieval | "
                 f"[bold]exit[/bold] to quit[/dim]",
                 border_style="cyan",
             ))
 
-        def _exit_on_sigint(signum, frame):
-            if dash:
-                dash.stop()
-            _restore_terminal()
-            console.print("\nGoodbye!")
-            os._exit(0)
-        signal.signal(signal.SIGINT, _exit_on_sigint)
-
         async def run_interactive():
             nonlocal dt_display
+            body_error: BaseException | None = None
             try:
-                while True:
-                    try:
-                        _flush_pending_tty_input()
+                # Contexts exit right-to-left, so terminal state is restored
+                # before a potentially slow MCP transport shutdown begins.
+                async with agent_loop.mcp_lifespan(), _interactive_ui_lifespan():
+                    while True:
+                        try:
+                            _flush_pending_tty_input()
 
-                        if dashboard_mode and dash:
-                            # Temporarily stop dashboard for input
-                            dash.stop()
-
-                        user_input = await _read_interactive_input_async()
-                        command = user_input.strip()
-
-                        if dashboard_mode and dash:
-                            dash.start()
-
-                        if not command:
-                            continue
-                        if _is_exit_command(command):
-                            if dash:
+                            if dashboard_mode and dash:
+                                # Temporarily stop dashboard for input
                                 dash.stop()
-                            _restore_terminal()
-                            console.print("\nGoodbye!")
-                            break
 
-                        # Update dashboard state
-                        route = "simple"
-                        from k2do.agent.router import classify_query
-                        if command.startswith("/deepthink"):
-                            route = "deepthink"
-                        elif command.startswith("/refine"):
-                            route = "refine"
-                        else:
-                            route = classify_query(command)
-                        dash_state.set_mode(route, command[:60])
-                        if dash:
-                            dash.refresh()
+                            user_input = await _read_interactive_input_async()
+                            command = user_input.strip()
 
-                        start_t = _time.monotonic()
-                        with _thinking_ctx():
-                            response = await agent_loop.process_direct(user_input, session_id)
-                        duration = (_time.monotonic() - start_t) * 1000
-                        _finish_overlays()
-
-                        # Update dashboard history
-                        dash_state.finish_request(
-                            command, response[:40] if response else "",
-                            duration, agent_loop._last_route,
-                        )
-                        if dash:
-                            dash.refresh()
-
-                        if not dashboard_mode:
-                            _print_agent_response(response, markdown, agent_loop._last_route, agent_loop._last_complexity)
-                        else:
-                            # In dashboard mode, show response briefly
-                            if dash:
-                                dash.stop()
-                            _print_agent_response(response, markdown, agent_loop._last_route, agent_loop._last_complexity)
-                            if dash:
+                            if dashboard_mode and dash:
                                 dash.start()
 
-                    except KeyboardInterrupt:
-                        if dash:
-                            dash.stop()
-                        _restore_terminal()
-                        console.print("\nGoodbye!")
-                        break
-                    except EOFError:
-                        if dash:
-                            dash.stop()
-                        _restore_terminal()
-                        console.print("\nGoodbye!")
-                        break
-            finally:
-                if dash:
-                    dash.stop()
-                await agent_loop.close_mcp()
+                            if not command:
+                                continue
+                            if _is_exit_command(command):
+                                console.print("\nGoodbye!")
+                                break
+
+                            # Update dashboard state
+                            route = _interactive_route(command)
+                            dash_state.set_mode(route, command[:60])
+                            if dash:
+                                dash.refresh()
+
+                            start_t = _time.monotonic()
+                            with _thinking_ctx():
+                                response = await agent_loop.process_direct(user_input, session_id)
+                            duration = (_time.monotonic() - start_t) * 1000
+                            _finish_overlays()
+
+                            # Update dashboard history
+                            dash_state.finish_request(
+                                command, response[:40] if response else "",
+                                duration, agent_loop._last_route,
+                            )
+                            if dash:
+                                dash.refresh()
+
+                            if not dashboard_mode:
+                                _print_agent_response(response, markdown, agent_loop._last_route, agent_loop._last_complexity)
+                            else:
+                                # In dashboard mode, show response briefly
+                                if dash:
+                                    dash.stop()
+                                _print_agent_response(response, markdown, agent_loop._last_route, agent_loop._last_complexity)
+                                if dash:
+                                    dash.start()
+
+                        except KeyboardInterrupt:
+                            if dash:
+                                dash.stop()
+                            console.print("\nGoodbye!")
+                            break
+                        except EOFError:
+                            if dash:
+                                dash.stop()
+                            console.print("\nGoodbye!")
+                            break
+            except BaseException as exc:
+                body_error = exc
+            # Covers failures while entering either context and preserves the
+            # body failure alongside independent shutdown failures.
+            await _run_gateway_cleanup(
+                body_error,
+                (
+                    ("interactive UI", _cleanup_interactive_ui),
+                    ("agent.aclose", agent_loop.aclose),
+                ),
+            )
         asyncio.run(run_interactive())
 
 
@@ -730,7 +867,7 @@ def channels_status():
     table.add_column("Config", style="yellow")
 
     tg = config.channels.telegram
-    tg_cfg = f"token: {tg.token[:10]}..." if tg.token else "[dim]not set[/dim]"
+    tg_cfg = "[green]configured[/green]" if tg.token else "[dim]not set[/dim]"
     table.add_row("Telegram", "ON" if tg.enabled else "[dim]OFF[/dim]", tg_cfg)
 
     console.print(table)
@@ -743,7 +880,7 @@ def channels_status():
 @app.command()
 def status():
     """Show K2DO status."""
-    from k2do.config.loader import load_config, get_config_path
+    from k2do.config.loader import get_config_path, load_config
 
     config_path = get_config_path()
     config = load_config()

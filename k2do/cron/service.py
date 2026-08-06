@@ -30,8 +30,9 @@ def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
     
     if schedule.kind == "cron" and schedule.expr:
         try:
-            from croniter import croniter
             from zoneinfo import ZoneInfo
+
+            from croniter import croniter
             # Use caller-provided reference time for deterministic scheduling
             base_time = now_ms / 1000
             tz = ZoneInfo(schedule.tz) if schedule.tz else datetime.now().astimezone().tzinfo
@@ -56,7 +57,10 @@ class CronService:
         self.store_path = store_path
         self.on_job = on_job  # Callback to execute job, returns response text
         self._store: CronStore | None = None
-        self._timer_task: asyncio.Task | None = None
+        self._timer_task: asyncio.Task[None] | None = None
+        self._cancel_requested_task: asyncio.Task[None] | None = None
+        self._close_task: asyncio.Task[BaseException | None] | None = None
+        self._stop_generation = 0
         self._running = False
     
     def _load_store(self) -> CronStore:
@@ -152,6 +156,23 @@ class CronService:
     
     async def start(self) -> None:
         """Start the cron service."""
+        if self._running and (
+            self._timer_task is None or not self._timer_task.done()
+        ):
+            logger.debug("Cron service already running")
+            return
+
+        stop_generation = self._stop_generation
+        close_task = self._ensure_close_task()
+        if close_task is not None:
+            await self._await_close_task(close_task)
+            if self._stop_generation != stop_generation:
+                return
+            if self._running and (
+                self._timer_task is None or not self._timer_task.done()
+            ):
+                return
+
         self._running = True
         self._load_store()
         self._recompute_next_runs()
@@ -160,11 +181,97 @@ class CronService:
         logger.info(f"Cron service started with {len(self._store.jobs if self._store else [])} jobs")
     
     def stop(self) -> None:
-        """Stop the cron service."""
+        """Request cron shutdown without discarding the timer handle."""
+        self._stop_generation += 1
         self._running = False
-        if self._timer_task:
-            self._timer_task.cancel()
-            self._timer_task = None
+        self._request_task_cancel(self._timer_task)
+
+    async def aclose(self) -> None:
+        """Cancel and await the active timer before returning."""
+        self.stop()
+        close_task = self._ensure_close_task()
+        if close_task is not None:
+            await self._await_close_task(close_task)
+
+    def _request_task_cancel(self, task: asyncio.Task[None] | None) -> None:
+        """Issue at most one service-owned cancellation for a timer."""
+        if (
+            task is not None
+            and not task.done()
+            and task.cancelling() == 0
+            and self._cancel_requested_task is not task
+        ):
+            self._cancel_requested_task = task
+            task.cancel()
+
+    def _ensure_close_task(self) -> asyncio.Task[BaseException | None] | None:
+        """Return the singleton drain task for the current timer generation."""
+        close_task = self._close_task
+        if close_task is not None:
+            return close_task
+        timer = self._timer_task
+        if timer is None:
+            return None
+        self._running = False
+        close_task = asyncio.create_task(self._drain_timer(timer))
+        self._close_task = close_task
+        return close_task
+
+    async def _drain_timer(self, timer: asyncio.Task[None]) -> BaseException | None:
+        self._request_task_cancel(timer)
+        expected_cancellation = self._cancel_requested_task is timer
+        close_error: BaseException | None = None
+        try:
+            await timer
+        except asyncio.CancelledError as exc:
+            if not expected_cancellation:
+                close_error = exc
+        except BaseException as exc:
+            close_error = exc
+        finally:
+            if self._timer_task is timer:
+                self._timer_task = None
+            if self._cancel_requested_task is timer:
+                self._cancel_requested_task = None
+        return close_error
+
+    async def _await_close_task(
+        self,
+        close_task: asyncio.Task[BaseException | None],
+    ) -> None:
+        """Shield the shared drain and replay this caller's cancellation last."""
+        caller_cancellation: asyncio.CancelledError | None = None
+        current = asyncio.current_task()
+        while not close_task.done():
+            cancelling_before = current.cancelling() if current is not None else 0
+            try:
+                await asyncio.shield(close_task)
+            except asyncio.CancelledError as exc:
+                cancelling_after = current.cancelling() if current is not None else 0
+                if not close_task.done() or cancelling_after > cancelling_before:
+                    if caller_cancellation is None:
+                        caller_cancellation = exc
+                    continue
+                break
+            except BaseException:
+                break
+
+        try:
+            close_error = close_task.result()
+        except BaseException as exc:
+            close_error = exc
+        if self._close_task is close_task:
+            self._close_task = None
+
+        if caller_cancellation is not None and close_error is not None:
+            raise BaseExceptionGroup(
+                "Cron shutdown failed after caller cancellation",
+                (caller_cancellation, close_error),
+            ) from None
+        if close_error is not None:
+            raise close_error
+        if caller_cancellation is not None:
+            raise caller_cancellation
     
     def _recompute_next_runs(self) -> None:
         """Recompute next run times for all enabled jobs."""
@@ -179,13 +286,17 @@ class CronService:
         """Get the earliest next run time across all jobs."""
         if not self._store:
             return None
-        times = [j.state.next_run_at_ms for j in self._store.jobs 
+        times = [j.state.next_run_at_ms for j in self._store.jobs
                  if j.enabled and j.state.next_run_at_ms]
         return min(times) if times else None
     
     def _arm_timer(self) -> None:
         """Schedule the next timer tick."""
-        if self._timer_task:
+        try:
+            current_task = asyncio.current_task()
+        except RuntimeError:
+            current_task = None
+        if self._timer_task and self._timer_task is not current_task:
             self._timer_task.cancel()
         
         next_wake = self._get_next_wake_ms()

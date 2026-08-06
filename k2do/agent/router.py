@@ -144,4 +144,5 @@ def get_route_label(route: str) -> str:
     return {
         "simple": "K2 Think (Single-Agent)",
         "deepthink": "DeepThink (Multi-Agent)",
+        "mcp": "MCP (Isolated Retrieval)",
     }.get(route, route)

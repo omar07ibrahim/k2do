@@ -55,7 +55,10 @@ class HeartbeatService:
         self.interval_s = interval_s
         self.enabled = enabled
         self._running = False
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
+        self._cancel_requested_task: asyncio.Task[None] | None = None
+        self._close_task: asyncio.Task[BaseException | None] | None = None
+        self._stop_generation = 0
     
     @property
     def heartbeat_file(self) -> Path:
@@ -75,17 +78,117 @@ class HeartbeatService:
         if not self.enabled:
             logger.info("Heartbeat disabled")
             return
-        
+
+        if self._running and self._task is not None and not self._task.done():
+            logger.debug("Heartbeat already running")
+            return
+
+        stop_generation = self._stop_generation
+        close_task = self._ensure_close_task()
+        if close_task is not None:
+            await self._await_close_task(close_task)
+            if self._stop_generation != stop_generation:
+                return
+            if self._running and self._task is not None and not self._task.done():
+                return
+
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
+        self._cancel_requested_task = None
         logger.info(f"Heartbeat started (every {self.interval_s}s)")
     
     def stop(self) -> None:
-        """Stop the heartbeat service."""
+        """Request heartbeat shutdown without discarding the task handle."""
+        self._stop_generation += 1
         self._running = False
-        if self._task:
-            self._task.cancel()
-            self._task = None
+        self._request_task_cancel(self._task)
+
+    async def aclose(self) -> None:
+        """Cancel and await the heartbeat worker before returning."""
+        self.stop()
+        close_task = self._ensure_close_task()
+        if close_task is not None:
+            await self._await_close_task(close_task)
+
+    def _request_task_cancel(self, task: asyncio.Task[None] | None) -> None:
+        """Issue at most one service-owned cancellation for a worker."""
+        if (
+            task is not None
+            and not task.done()
+            and task.cancelling() == 0
+            and self._cancel_requested_task is not task
+        ):
+            self._cancel_requested_task = task
+            task.cancel()
+
+    def _ensure_close_task(self) -> asyncio.Task[BaseException | None] | None:
+        """Return the singleton drain task for the current worker generation."""
+        close_task = self._close_task
+        if close_task is not None:
+            return close_task
+        worker = self._task
+        if worker is None:
+            return None
+        self._running = False
+        close_task = asyncio.create_task(self._drain_worker(worker))
+        self._close_task = close_task
+        return close_task
+
+    async def _drain_worker(self, worker: asyncio.Task[None]) -> BaseException | None:
+        self._request_task_cancel(worker)
+        expected_cancellation = self._cancel_requested_task is worker
+        close_error: BaseException | None = None
+        try:
+            await worker
+        except asyncio.CancelledError as exc:
+            if not expected_cancellation:
+                close_error = exc
+        except BaseException as exc:
+            close_error = exc
+        finally:
+            if self._task is worker:
+                self._task = None
+            if self._cancel_requested_task is worker:
+                self._cancel_requested_task = None
+        return close_error
+
+    async def _await_close_task(
+        self,
+        close_task: asyncio.Task[BaseException | None],
+    ) -> None:
+        """Shield the shared drain and replay this caller's cancellation last."""
+        caller_cancellation: asyncio.CancelledError | None = None
+        current = asyncio.current_task()
+        while not close_task.done():
+            cancelling_before = current.cancelling() if current is not None else 0
+            try:
+                await asyncio.shield(close_task)
+            except asyncio.CancelledError as exc:
+                cancelling_after = current.cancelling() if current is not None else 0
+                if not close_task.done() or cancelling_after > cancelling_before:
+                    if caller_cancellation is None:
+                        caller_cancellation = exc
+                    continue
+                break
+            except BaseException:
+                break
+
+        try:
+            close_error = close_task.result()
+        except BaseException as exc:
+            close_error = exc
+        if self._close_task is close_task:
+            self._close_task = None
+
+        if caller_cancellation is not None and close_error is not None:
+            raise BaseExceptionGroup(
+                "Heartbeat shutdown failed after caller cancellation",
+                (caller_cancellation, close_error),
+            ) from None
+        if close_error is not None:
+            raise close_error
+        if caller_cancellation is not None:
+            raise caller_cancellation
     
     async def _run_loop(self) -> None:
         """Main heartbeat loop."""

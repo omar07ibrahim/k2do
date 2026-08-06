@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and test tools
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Run the complete offline suite
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python -m pytest -p no:cacheprovider -q
+
+      - name: Lint the hardened lifecycle boundary
+        run: >-
+          ruff check --no-cache
+          k2do/agent/context.py
+          k2do/agent/loop.py
+          k2do/agent/router.py
+          k2do/agent/subagent.py
+          k2do/channels/manager.py
+          k2do/channels/telegram.py
+          k2do/cli/commands.py
+          k2do/cron/service.py
+          k2do/heartbeat/service.py
+          tests/test_agent_close.py
+          tests/test_cli_security.py
+          tests/test_mcp_explicit_isolation.py
+          tests/test_mcp_lifecycle.py
+          tests/test_mcp_trust_boundary.py
+          tests/test_router_preferences.py
+          tests/test_service_shutdown.py
+          tests/test_subagent_shutdown.py
+          --ignore E501,W293,I001,ASYNC109,ASYNC110,ASYNC210,ASYNC230,ASYNC240,ASYNC250,ASYNC251
