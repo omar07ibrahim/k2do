@@ -22,15 +22,20 @@ deliberately not presented as benchmark evidence.
 
 ## Run the verified offline path
 
-Both offline labs use strict scripted providers. They need no external
-credentials and do not send external model requests. The first verifies the
-bounded routed-processing handoff; the second isolates DeepThink fallback,
-timeout, degradation, and cancellation behavior.
+The credential-free verification path has three layers. Strict scripted
+providers verify the bounded routed-processing handoff and isolate DeepThink
+fallback, timeout, degradation, and cancellation behavior. A third laboratory
+uses the production MCP client against real strict stdio subprocesses to force
+discovery, protocol-error, repeated-cancellation, owner-scope, cleanup, and
+same-loop restart paths. None of the three needs external credentials or sends
+a model request.
 
 ```mermaid
 flowchart LR
     V["Create Python 3.11+ venv"] --> I["Install dev + pinned evidence renderer"]
-    I --> H["Run routed handoff lab"]
+    I --> M["Run production MCP fault lab"]
+    M --> MC["Fresh-check MCP visual bundle"]
+    MC --> H["Run routed handoff lab"]
     H --> HC["Check handoff bundle"]
     HC --> D["Run direct-engine lab"]
     D --> DC["Check direct-engine bundle"]
@@ -42,6 +47,8 @@ python3 -m venv .venv
 python -m pip install -e '.[dev]'
 python -m pip install -r requirements-evidence.txt
 
+python -m k2do.labs.mcp_fault_lab
+python -m k2do.labs.mcp_evidence_recorder check --fresh
 python -m k2do.labs.agent_handoff_trace
 python -m k2do.labs.handoff_evidence_recorder check
 python -m k2do.labs.deepthink_trace
@@ -54,6 +61,65 @@ environment reproducible: application dependencies have lower bounds and the
 repository has no lockfile. The raster evidence path pins Pillow `12.3.0`; its
 manifest also records Python, OS, architecture, FreeType, zlib, and K2DO
 versions.
+
+## Production MCP lifecycle under faults
+
+![Receipt-derived replay of six real MCP fault scenarios](docs/mcp-fault-evidence/workflow-demo.gif)
+
+*Six-frame replay generated from the ordered receipt. The underlying scenarios
+use real subprocesses and the production lifecycle; frame delays are
+illustrative and make no latency claim.*
+
+![Source-bound MCP lifecycle architecture](docs/mcp-fault-evidence/architecture.svg)
+
+This laboratory does not replace the MCP client with a mock. It starts strict,
+independent stdio servers and connects them through
+<code>AgentLoop.mcp_lifespan</code>, <code>connect_mcp_servers</code>,
+<code>MCPToolWrapper.execute</code>, and the real tool registry. The pinned
+<code>mcp==2.0.0</code> client negotiates protocol <code>2026-07-28</code>
+through <code>server/discover</code> and NDJSON stdio.
+
+![Rendered terminal view of byte-exact MCP fault-lab stdout](docs/mcp-fault-evidence/terminal.png)
+
+*This is a raster rendering of the byte-exact captured CLI stdout, not a
+hand-written mockup. The same bytes are committed as
+[the terminal transcript](docs/mcp-fault-evidence/mcp-fault-lab.txt) and
+[canonical receipt](docs/mcp-fault-evidence/receipt.json). Receipt SHA-256:
+<code>e69543846b4563901637ec7d8a35035a5efad00eda0f6c3e7d36480fe152346c</code>.*
+
+![Verified MCP fault and recovery matrix](docs/mcp-fault-evidence/fault-matrix.svg)
+
+| Real scenario | Verified result |
+| --- | --- |
+| Discovery, call, close, restart | Stable catalog/result digests across two generations; first and repeated manual close both succeed |
+| Broken catalog beside a healthy peer | Failed catalog stays unpublished while the healthy peer remains callable |
+| Remote protocol error | Public result is categorical; raw fixture fault is absent; the same connection then succeeds |
+| Two cancelled calls | Caller cancellation propagates, two courtesy cancellation notifications are observed, and the same connection recovers |
+| Cancelled startup | The first process is reaped, no catalog survives, and the same loop starts a healthy replacement |
+| Cancelled owner scope | The inherited borrower is cancelled and drained before the same loop restarts |
+
+![Observed MCP cancellation and recovery timeline](docs/mcp-fault-evidence/cancellation-timeline.svg)
+
+Across the matrix, all 10 fresh process generations report stdin EOF, are
+reaped, and leave the tool registry at its baseline. Each scenario has a
+15-second cancellation boundary, and the hosted evidence job repeats the
+capture before publishing. The public projection is intentionally limited to
+labels, counts, booleans, and SHA-256 digests: no token, PID, request ID, raw
+argument, raw error, absolute path, or wall-clock measurement is emitted.
+
+Run the same credential-free path:
+
+    python -m k2do.labs.mcp_fault_lab
+    python -m k2do.labs.mcp_evidence_recorder check --fresh
+
+The [MCP evidence manifest](docs/mcp-fault-evidence/manifest.json) binds 12
+capture-critical workflow, implementation, fixture, recorder, and test blobs
+to source commit <code>fc770c8</code>. It records Python 3.12.13, MCP 2.0.0,
+and Pillow 12.3.0, verifies every artifact hash/media type, deterministically
+re-renders the PNG/SVG/GIF set, and compares a fresh receipt. The fixture is
+designed around stdio plus a private authenticated AF_UNIX lifecycle oracle;
+the recorder deliberately makes no independent syscall-level network-isolation
+claim.
 
 ![Raster rendering of the routed-handoff reader banner and captured stdout](docs/agent-handoff-evidence/terminal.png)
 
@@ -198,11 +264,12 @@ See the [evidence protocol and boundaries](docs/evidence.md) and the
 | Direct `DeepThinkEngine` concurrency, fallback, timeout, Judge degradation, and cancellation | Verified by the offline receipt |
 | `MessageBus → router → AgentLoop._process_message → DeepThink → tool loop → session → MessageBus` routed handoff | Verified by the handoff receipt |
 | Workspace-restricted `write_file → read_file` and fresh session reload | Verified by the handoff receipt |
-| Artifact provenance and renderer-runtime-bound deterministic rendering | Verified by both committed manifests and checkers |
-| Background `AgentLoop.run()`, MCP lifecycle, config loader wiring, refinement, memory consolidation, gateway, and Telegram paths | Adversarially unit-tested in the full suite; outside both receipts |
+| Production MCP discovery, catalog isolation, call recovery, cancellation, cleanup, and same-loop restart | Verified by the MCP fault receipt across 10 real subprocess generations |
+| Artifact provenance and renderer-runtime-bound deterministic rendering | Verified by all three committed manifests and checkers |
+| Background `AgentLoop.run()`, config loader wiring, refinement, memory consolidation, gateway, and Telegram paths | Adversarially unit-tested in the full suite; outside the current receipts |
 | Live K2 provider behavior | Not captured |
 | Answer quality, token cost, throughput, or latency | Not benchmarked |
-| Hosted clean-runner CI | Full offline pytest suite plus hardened-boundary Ruff checks run on every push and pull request |
+| Hosted clean-runner CI | Full offline pytest suite, hardened-boundary Ruff checks, and a fresh MCP evidence capture/check run on the committed evidence branch |
 | Locked application dependency environment | Not yet available |
 
 ## Optional live K2 setup
@@ -264,19 +331,23 @@ k2do/
     handoff_evidence_recorder.py # source-bound raster/SVG/GIF capture
     deepthink_trace.py           # direct-engine fault-path receipt
     trace_evidence_recorder.py   # direct-engine capture and renderer
+    mcp_fault_lab.py             # real stdio subprocess lifecycle matrix
+    strict_mcp_stdio_server.py   # independent strict protocol fixture
+    mcp_evidence_recorder.py     # source-bound PNG/SVG/GIF capture
   cli/                         # Typer/Rich live interface
   channels/                    # adapted channel integrations
 docs/
   agent-handoff-evidence/      # receipt, real stdout, SVG/PNG/GIF, manifest
   deepthink-trace-evidence/    # direct-engine receipt and SVG evidence
+  mcp-fault-evidence/          # real MCP stdout, matrix, timeline, GIF, manifest
   evidence.md                  # verification and maintenance protocols
   provenance.md                # upstream/contribution boundary
 tests/                         # unit and adversarial evidence tests
 ```
 
 The next evidence milestones are a locked application dependency set with CI,
-config-loader/MCP lifecycle evidence, deterministic refinement and memory
-traces, and an opt-in sanitized live-provider capture. They are tracked as
+config-loader evidence, deterministic refinement and memory traces, and an
+opt-in sanitized live-provider capture. They are tracked as
 remaining work, not described as completed features.
 
 ## License and attribution
