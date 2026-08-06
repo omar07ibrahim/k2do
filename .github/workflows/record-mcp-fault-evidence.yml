@@ -1,0 +1,73 @@
+name: Record MCP fault evidence
+
+on:
+  push:
+    branches:
+      - feat/provenance-and-safety
+    paths:
+      - .github/workflows/ci.yml
+      - .github/workflows/record-mcp-fault-evidence.yml
+      - pyproject.toml
+      - requirements-evidence.txt
+      - k2do/agent/loop.py
+      - k2do/agent/tools/mcp.py
+      - k2do/labs/mcp_evidence_recorder.py
+      - k2do/labs/mcp_fault_lab.py
+      - k2do/labs/strict_mcp_stdio_server.py
+      - tests/test_mcp_evidence_recorder.py
+      - tests/test_mcp_fault_lab.py
+      - tests/test_strict_mcp_stdio_server.py
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mcp-fault-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and evidence tools
+        run: >-
+          python -m pip install --disable-pip-version-check
+          -r requirements-evidence.txt
+          -e ".[dev]"
+
+      - name: Capture and verify the committed lab
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python -m k2do.labs.mcp_evidence_recorder record --replace
+          python -m k2do.labs.mcp_evidence_recorder check --fresh
+
+      - name: Commit only the verified evidence bundle
+        env:
+          GIT_AUTHOR_NAME: Omar Ibrahim
+          GIT_AUTHOR_EMAIL: 31526072+omar07ibrahim@users.noreply.github.com
+          GIT_COMMITTER_NAME: Omar Ibrahim
+          GIT_COMMITTER_EMAIL: 31526072+omar07ibrahim@users.noreply.github.com
+        run: |
+          git add -- docs/mcp-fault-evidence
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          unexpected=$(git diff --cached --name-only | grep -Ev '^docs/mcp-fault-evidence/' || true)
+          test -z "$unexpected"
+          git diff --cached --check
+          git commit -m "Record verified MCP fault evidence"
+          git push origin "HEAD:${GITHUB_REF}"
