@@ -1,0 +1,135 @@
+{
+  "evidence_boundary": {
+    "external_network": "no_external_network",
+    "fixture_io": [
+      "stdio",
+      "private_unix_audit"
+    ],
+    "public_projection": "labels_counts_booleans_sha256",
+    "raw_rpc_fields": 0,
+    "wall_clock_metrics": 0
+  },
+  "invariants": {
+    "atomic_catalog_publication": true,
+    "caller_cancellation_propagated": true,
+    "categorical_remote_errors": true,
+    "idempotent_close": true,
+    "same_loop_restart": true
+  },
+  "production_surface": [
+    "AgentLoop.mcp_lifespan",
+    "connect_mcp_servers",
+    "MCPToolWrapper.execute",
+    "ToolRegistry"
+  ],
+  "protocol": {
+    "audit": "private_authenticated_unix",
+    "client": "mcp-python-sdk-2.0.0",
+    "mode": "auto",
+    "negotiated": "2026-07-28",
+    "transport": "stdio_ndjson"
+  },
+  "scenarios": [
+    {
+      "catalog_sha256": "626896ff201064a6c7f80a014862357487aee3714acada1b7049ca2911277105",
+      "cleanup": {
+        "processes_reaped": 2,
+        "registry_restored": true,
+        "stdin_eof": 2
+      },
+      "close_calls": 4,
+      "generations": 2,
+      "id": "happy_discovery_call_restart",
+      "recovery": "same_loop_restart",
+      "result_sha256": "6a924c89687a6ee149f0aca9c4a3cbe87a8b94065b66b1b2d16486c8892f9a11",
+      "wire_path": [
+        "server/discover",
+        "tools/list",
+        "tools/call"
+      ]
+    },
+    {
+      "cleanup": {
+        "processes_reaped": 2,
+        "registry_restored": true,
+        "stdin_eof": 2
+      },
+      "failure_projection": "catalog_not_published",
+      "generations": 2,
+      "id": "catalog_failure_isolated",
+      "outcomes": [
+        {
+          "phase": "discovery",
+          "status": "failed",
+          "tool_count": 0
+        },
+        {
+          "phase": "ready",
+          "status": "connected",
+          "tool_count": 1
+        }
+      ],
+      "recovery": "healthy_peer_available",
+      "result_sha256": "6a924c89687a6ee149f0aca9c4a3cbe87a8b94065b66b1b2d16486c8892f9a11"
+    },
+    {
+      "call_path": [
+        "categorical_error",
+        "same_connection_success"
+      ],
+      "cleanup": {
+        "processes_reaped": 1,
+        "registry_restored": true,
+        "stdin_eof": 1
+      },
+      "generations": 1,
+      "id": "protocol_error_then_same_connection_recovery",
+      "raw_fault_visible": false,
+      "recovery": "same_connection_success",
+      "result_sha256": "6a924c89687a6ee149f0aca9c4a3cbe87a8b94065b66b1b2d16486c8892f9a11"
+    },
+    {
+      "cancellation": "propagated",
+      "cancelled_calls": 2,
+      "cleanup": {
+        "processes_reaped": 1,
+        "registry_restored": true,
+        "stdin_eof": 1
+      },
+      "courtesy_cancellations": 2,
+      "generations": 1,
+      "id": "repeated_call_cancellation_recovers",
+      "recovery": "same_connection_success",
+      "result_sha256": "6a924c89687a6ee149f0aca9c4a3cbe87a8b94065b66b1b2d16486c8892f9a11"
+    },
+    {
+      "cancellation": "propagated",
+      "catalog_after_cancel": 0,
+      "cleanup": {
+        "processes_reaped": 2,
+        "registry_restored": true,
+        "stdin_eof": 2
+      },
+      "generations": 2,
+      "id": "startup_cancellation_reaps_then_restarts",
+      "recovery": "same_loop_restart",
+      "result_sha256": "6a924c89687a6ee149f0aca9c4a3cbe87a8b94065b66b1b2d16486c8892f9a11"
+    },
+    {
+      "borrowers_cancelled": 1,
+      "cancellation": "owner_and_borrower_propagated",
+      "cleanup": {
+        "processes_reaped": 2,
+        "registry_restored": true,
+        "stdin_eof": 2
+      },
+      "courtesy_cancellations": 1,
+      "generations": 2,
+      "id": "scope_cancellation_drains_borrower_then_restarts",
+      "recovery": "same_loop_restart",
+      "result_sha256": "6a924c89687a6ee149f0aca9c4a3cbe87a8b94065b66b1b2d16486c8892f9a11"
+    }
+  ],
+  "schema": "k2do.mcp-fault-lab/v1",
+  "status": "verified"
+}

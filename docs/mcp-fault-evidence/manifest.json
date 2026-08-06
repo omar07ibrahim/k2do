@@ -1,0 +1,144 @@
+{
+  "artifacts": {
+    "architecture.svg": {
+      "bytes": 2755,
+      "media_type": "image/svg+xml",
+      "sha256": "bef9cd2bf03dad12b20a47ff84b1353d820a486e529d0558e6ccee71f2987629"
+    },
+    "cancellation-timeline.svg": {
+      "bytes": 2654,
+      "media_type": "image/svg+xml",
+      "sha256": "2b4c934fe0d00f0ebb0ae0111def42a04bb5735cca86ef33f3b340c0501b5491"
+    },
+    "fault-matrix.svg": {
+      "bytes": 3415,
+      "media_type": "image/svg+xml",
+      "sha256": "6d4697df459115b93f7e9843256d0861679da3ad9f5c55f7eaefe51140b9bbcd"
+    },
+    "mcp-fault-lab.txt": {
+      "bytes": 3868,
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "5bd4e0911185e7d29579a8e9f8a137fb012e95dbb52ee444ea48e80babdd7c8f"
+    },
+    "receipt.json": {
+      "bytes": 3832,
+      "media_type": "application/json",
+      "sha256": "e69543846b4563901637ec7d8a35035a5efad00eda0f6c3e7d36480fe152346c"
+    },
+    "terminal.png": {
+      "bytes": 321688,
+      "media_type": "image/png",
+      "sha256": "db5139eb81c5d873bfa6e5cd1dbebdf40a6fa06e27ba52c764613ce5ad8a6748"
+    },
+    "terminal.svg": {
+      "bytes": 11764,
+      "media_type": "image/svg+xml",
+      "sha256": "3aecee6e22ba0fc1ef9526379b83fb123501ceccf84cff44b355db38aeeafe37"
+    },
+    "workflow-demo.gif": {
+      "bytes": 243007,
+      "media_type": "image/gif",
+      "sha256": "f72bb276ee493e25a2001dc0566ba1b80fc01cda604a2bb3d23dd5c6653f8fe0"
+    }
+  },
+  "capture": {
+    "command": [
+      "python",
+      "-m",
+      "k2do.labs.mcp_fault_lab"
+    ],
+    "fixture_transport": [
+      "stdio",
+      "private_unix_audit"
+    ],
+    "network_observation": "No independent syscall claim: the lab uses stdio plus a private authenticated AF_UNIX lifecycle oracle and exposes no network endpoint.",
+    "stderr_bytes": 0,
+    "stdout": "canonical receipt.json"
+  },
+  "runtime": {
+    "mcp": "2.0.0",
+    "pillow": "12.3.0",
+    "python": "3.12.13"
+  },
+  "schema": "k2do.mcp-fault-evidence/v1",
+  "source": {
+    "commit": "fc770c8e2a3e60ef95cafc02b0774fd711dc3b60",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "bytes": 2211,
+        "git_blob": "945a21fa2734ff6257705616d166c77845a878a4",
+        "git_mode": "100644",
+        "sha256": "e7ba22820cb711cd818af4891745d5a1a7f4837d7c49d6b55d29bc1afaba0b3c"
+      },
+      ".github/workflows/record-mcp-fault-evidence.yml": {
+        "bytes": 2253,
+        "git_blob": "15e285757f123f70f9e3025efe492283c947d8d0",
+        "git_mode": "100644",
+        "sha256": "5724f07ec5d98b24a16e8e7d5317b749d2ceced211c49b4bf5d5b0a1c4df6880"
+      },
+      "k2do/agent/loop.py": {
+        "bytes": 99842,
+        "git_blob": "2f2b300066cc87154edea50cad0b1ea38ee67e5d",
+        "git_mode": "100644",
+        "sha256": "a256fdc1f87e8873d038c35ce0375a74864933459445b6f6fa7361d38a953434"
+      },
+      "k2do/agent/tools/mcp.py": {
+        "bytes": 53353,
+        "git_blob": "804b51347a25207250381a402b2cf078cf4fc575",
+        "git_mode": "100644",
+        "sha256": "3042e55858fe10d5f69182884d5d7f43a32cb4b31408c73e2543226f5c376a80"
+      },
+      "k2do/labs/mcp_evidence_recorder.py": {
+        "bytes": 26503,
+        "git_blob": "7650dd99cd959936418821bdb25028bedda4c5de",
+        "git_mode": "100644",
+        "sha256": "0302551a11f1d2b44439874ad786dd29c4f4ae9da160ccdb13e47405424b48f1"
+      },
+      "k2do/labs/mcp_fault_lab.py": {
+        "bytes": 32922,
+        "git_blob": "4e836dd679752b35f90886d1210172eb5ce2d325",
+        "git_mode": "100644",
+        "sha256": "bac131fc264d310b46122e7ab4dd86adf3aae82c3f90cd0dc4c88043b8853dca"
+      },
+      "k2do/labs/strict_mcp_stdio_server.py": {
+        "bytes": 14651,
+        "git_blob": "85a069a83b97b38e167ce8939bb5e5fc5ffd064a",
+        "git_mode": "100644",
+        "sha256": "fc1b5311b3bedc7d5820c002a44aab09505667234ec691e477b831615e7f3970"
+      },
+      "pyproject.toml": {
+        "bytes": 1701,
+        "git_blob": "f76179b0f450d7e1e5d430d316f83b74eb0753c0",
+        "git_mode": "100644",
+        "sha256": "9701534c68a04d0896ce56e0bc5fa259f6efeb18c7516de1ba7511adf4512a14"
+      },
+      "requirements-evidence.txt": {
+        "bytes": 15,
+        "git_blob": "e7cc6c178b542946a555ad07fa55b5dde3fca566",
+        "git_mode": "100644",
+        "sha256": "41b54a6fb2918667ca47a61d73b522629d84490f3d78f0f20b21135faba10d35"
+      },
+      "tests/test_mcp_evidence_recorder.py": {
+        "bytes": 3943,
+        "git_blob": "1d27d9a62048c05220bce783ef94bed2454ac886",
+        "git_mode": "100644",
+        "sha256": "10fd208cb21e2a4174f8913ee541e5573df91000179cfe8b3e25bac497d15fc6"
+      },
+      "tests/test_mcp_fault_lab.py": {
+        "bytes": 8103,
+        "git_blob": "5e62acb2e13120b9d7499d6dc1fb578363428c55",
+        "git_mode": "100644",
+        "sha256": "31067c5aa81115ff1953e8052a864023821791fea317b71385c0a76c3288b6ee"
+      },
+      "tests/test_strict_mcp_stdio_server.py": {
+        "bytes": 11454,
+        "git_blob": "f335d72af1caef8bf0ff21c8bea8468b0eb542ad",
+        "git_mode": "100644",
+        "sha256": "06cf04c8ab3ae851bbbb035e7f0d80701403d4b851b3f2511d87bbd29f04d702"
+      }
+    },
+    "tree": "ddd2bce824f73c6c12815a9f9959bb4f75e30419",
+    "verification": "current committed blobs must remain byte-identical"
+  },
+  "status": "verified"
+}
