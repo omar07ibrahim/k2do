@@ -63,7 +63,7 @@ the byte-exact captured canonical stdout also stored in
 photograph of an OS terminal. The public payload contains labels, counts,
 relative fixture names, and digests—not prompts, model responses, credentials,
 endpoints, absolute paths, or elapsed timings. Receipt SHA-256:
-`f219e1cf45671cf91c57c6bfdd9ef18b42f7d704c2b4c9b07eaefaff33f37486`.*
+`12b6c89a40bf2ca4f775a9ffa0c68b0525cde3f853dd4cf089ebb5e333f91db8`.*
 
 ## Routed reasoning-to-action handoff
 
@@ -199,10 +199,11 @@ See the [evidence protocol and boundaries](docs/evidence.md) and the
 | `MessageBus → router → AgentLoop._process_message → DeepThink → tool loop → session → MessageBus` routed handoff | Verified by the handoff receipt |
 | Workspace-restricted `write_file → read_file` and fresh session reload | Verified by the handoff receipt |
 | Artifact provenance and renderer-runtime-bound deterministic rendering | Verified by both committed manifests and checkers |
-| Background `AgentLoop.run()`, MCP lifecycle, config loader wiring, refinement, memory consolidation, gateway, and Telegram paths | Present or unit-tested in parts; outside both receipts |
+| Background `AgentLoop.run()`, MCP lifecycle, config loader wiring, refinement, memory consolidation, gateway, and Telegram paths | Adversarially unit-tested in the full suite; outside both receipts |
 | Live K2 provider behavior | Not captured |
 | Answer quality, token cost, throughput, or latency | Not benchmarked |
-| Locked dependency environment and CI | Not yet available |
+| Hosted clean-runner CI | Full offline pytest suite plus hardened-boundary Ruff checks run on every push and pull request |
+| Locked application dependency environment | Not yet available |
 
 ## Optional live K2 setup
 

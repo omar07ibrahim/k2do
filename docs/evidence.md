@@ -23,7 +23,7 @@ generated output.
 | `manifest.json` | Source bindings, renderer runtime, artifact hashes, sizes, and media types |
 
 The routed receipt SHA-256 is
-`f219e1cf45671cf91c57c6bfdd9ef18b42f7d704c2b4c9b07eaefaff33f37486`.
+`12b6c89a40bf2ca4f775a9ffa0c68b0525cde3f853dd4cf089ebb5e333f91db8`.
 The manifest binds `pyproject.toml`, `requirements-evidence.txt`, and all
 committed blobs under `k2do/`: 67 paths for the current capture.
 
