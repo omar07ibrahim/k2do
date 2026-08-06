@@ -154,17 +154,25 @@ def test_held_call_accepts_only_its_cancellation_notification() -> None:
 
 
 @pytest.mark.parametrize(
-    ("raw", "code"),
+    ("raw", "exception", "code"),
     [
-        (b'{"jsonrpc":"2.0","jsonrpc":"2.0"}\n', "duplicate_object_key"),
-        (b'{"value":NaN}\n', "non_finite_number"),
-        (b"[]\n", "request_not_object"),
-        (b"{}", "invalid_frame"),
-        (b"\xff\n", "invalid_json"),
+        (
+            b'{"jsonrpc":"2.0","jsonrpc":"2.0"}\n',
+            fixture.JSONParseError,
+            "duplicate_object_key",
+        ),
+        (b'{"value":NaN}\n', fixture.JSONParseError, "non_finite_number"),
+        (b"[]\n", fixture.ProtocolViolationError, "request_not_object"),
+        (b"{}", fixture.JSONParseError, "invalid_frame"),
+        (b"\xff\n", fixture.JSONParseError, "invalid_json"),
     ],
 )
-def test_decoder_rejects_ambiguous_or_non_json_frames(raw: bytes, code: str) -> None:
-    with pytest.raises(fixture.JSONParseError, match=code):
+def test_decoder_rejects_ambiguous_or_non_json_frames(
+    raw: bytes,
+    exception: type[fixture.ProtocolViolationError],
+    code: str,
+) -> None:
+    with pytest.raises(exception, match=code):
         fixture.decode_message(raw)
 
 

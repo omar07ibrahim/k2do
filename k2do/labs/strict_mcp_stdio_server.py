@@ -20,7 +20,14 @@ FAULT_SENTINEL = "k2do-fixture-raw-fault-sentinel"
 MAX_LINE_BYTES = 64 * 1024
 AUDIT_TIMEOUT_SECONDS = 1.0
 BEHAVIORS = frozenset(
-    {"healthy", "list_failure", "call_error_then_recover", "startup_hang", "call_hang"}
+    {
+        "healthy",
+        "list_failure",
+        "call_error_then_recover",
+        "startup_hang",
+        "call_hang",
+        "call_hang_twice_then_recover",
+    }
 )
 AUDIT_EVENTS = frozenset(
     {
@@ -273,7 +280,9 @@ class StrictMCPServer:
                 -32603,
                 "Synthetic call fault: " + self._fault_sentinel,
             )
-        if self.behavior == "call_hang":
+        if self.behavior == "call_hang" or (
+            self.behavior == "call_hang_twice_then_recover" and self._call_count <= 2
+        ):
             self._held_call_ids.add(request_id)
             self._audit("call_held", "tools/call")
             return None
