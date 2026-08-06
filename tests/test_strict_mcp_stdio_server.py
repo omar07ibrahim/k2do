@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import socket
+import subprocess
+import sys
+from pathlib import Path
+from typing import BinaryIO
 
 import pytest
 
@@ -31,7 +37,7 @@ def _server(behavior: str = "healthy") -> tuple[fixture.StrictMCPServer, list[tu
     events: list[tuple[str, str | None]] = []
     server = fixture.StrictMCPServer(
         behavior,
-        private_canary="private-audit-canary",
+        fault_sentinel=fixture.FAULT_SENTINEL,
         audit=lambda event, method=None: events.append((event, method)),
     )
     return server, events
@@ -94,7 +100,7 @@ def test_call_error_is_private_and_next_call_recovers() -> None:
 
     assert first is not None
     assert first["error"]["code"] == -32603
-    assert "private-audit-canary" in first["error"]["message"]
+    assert fixture.FAULT_SENTINEL in first["error"]["message"]
     assert second is not None
     assert second["result"]["structuredContent"] == {"accepted": 7}
     assert events == [
@@ -134,7 +140,7 @@ def test_held_call_accepts_only_its_cancellation_notification() -> None:
         ("cancellation_observed", "notifications/cancelled"),
     ]
 
-    with pytest.raises(fixture.ProtocolViolationError, match="unknown_cancellation"):
+    assert (
         server.handle(
             {
                 "jsonrpc": "2.0",
@@ -142,6 +148,9 @@ def test_held_call_accepts_only_its_cancellation_notification() -> None:
                 "params": {"requestId": "held-1"},
             }
         )
+        is None
+    )
+    assert events[-1] == ("cancellation_ignored", "notifications/cancelled")
 
 
 @pytest.mark.parametrize(
@@ -155,7 +164,7 @@ def test_held_call_accepts_only_its_cancellation_notification() -> None:
     ],
 )
 def test_decoder_rejects_ambiguous_or_non_json_frames(raw: bytes, code: str) -> None:
-    with pytest.raises(fixture.ProtocolViolationError, match=code):
+    with pytest.raises(fixture.JSONParseError, match=code):
         fixture.decode_message(raw)
 
 
@@ -204,3 +213,149 @@ def test_main_rejects_arguments_without_echo(capsys: pytest.CaptureFixture[str])
     assert captured.out == ""
     assert captured.err == ""
     assert rejected not in captured.out + captured.err
+
+
+def _start_subprocess(
+    tmp_path: Path,
+    behavior: str,
+) -> tuple[subprocess.Popen[bytes], socket.socket, str]:
+    socket_path = tmp_path / "audit.sock"
+    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    listener.settimeout(3)
+    listener.bind(str(socket_path))
+    listener.listen(1)
+    token = "private-audit-credential-never-on-stdio"
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "K2DO_MCP_LAB_AUDIT_SOCKET": str(socket_path),
+            "K2DO_MCP_LAB_AUDIT_TOKEN": token,
+            "K2DO_MCP_LAB_BEHAVIOR": behavior,
+            "K2DO_MCP_LAB_INSTANCE": "subprocess-test",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONHASHSEED": "0",
+        }
+    )
+    process = subprocess.Popen(
+        [sys.executable, "-m", "k2do.labs.strict_mcp_stdio_server"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        audit, _address = listener.accept()
+    except BaseException:
+        process.kill()
+        process.wait(timeout=3)
+        raise
+    finally:
+        listener.close()
+    audit.settimeout(3)
+    return process, audit, token
+
+
+def _write_request(stream: BinaryIO, request_id: int, method: str, **params: object) -> None:
+    request = {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": {"_meta": _meta(), **params},
+    }
+    stream.write((fixture.canonical_json(request) + "\n").encode("utf-8"))
+    stream.flush()
+
+
+def _read_audit(audit: socket.socket) -> list[dict]:
+    raw = b""
+    while True:
+        chunk = audit.recv(4096)
+        if not chunk:
+            break
+        raw += chunk
+    return [json.loads(line) for line in raw.splitlines()]
+
+
+def _close_process_streams(process: subprocess.Popen[bytes]) -> None:
+    for stream in (process.stdin, process.stdout, process.stderr):
+        if stream is not None and not stream.closed:
+            stream.close()
+
+
+def test_real_stdio_subprocess_negotiates_calls_and_exits_on_eof(tmp_path: Path) -> None:
+    process, audit, token = _start_subprocess(tmp_path, "healthy")
+    responses: list[bytes] = []
+    try:
+        assert process.stdin is not None
+        assert process.stdout is not None
+        assert process.stderr is not None
+
+        _write_request(process.stdin, 1, "server/discover")
+        responses.append(process.stdout.readline())
+        assert json.loads(responses[-1])["result"]["supportedVersions"] == [
+            fixture.PROTOCOL_VERSION
+        ]
+
+        _write_request(process.stdin, 2, "tools/list")
+        responses.append(process.stdout.readline())
+        assert json.loads(responses[-1])["result"]["tools"][0]["name"] == fixture.TOOL_NAME
+
+        _write_request(
+            process.stdin,
+            3,
+            "tools/call",
+            name=fixture.TOOL_NAME,
+            arguments={"value": 9},
+        )
+        responses.append(process.stdout.readline())
+        assert json.loads(responses[-1])["result"]["structuredContent"] == {"accepted": 9}
+
+        process.stdin.close()
+        assert process.wait(timeout=3) == 0
+        assert process.stderr.read() == b""
+        assert token.encode("utf-8") not in b"".join(responses)
+
+        audit_events = _read_audit(audit)
+        assert [event["event"] for event in audit_events][-2:] == [
+            "stdin_eof",
+            "process_exit",
+        ]
+        assert [event["ordinal"] for event in audit_events] == list(
+            range(1, len(audit_events) + 1)
+        )
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=3)
+        audit.close()
+        _close_process_streams(process)
+
+
+def test_real_stdio_subprocess_maps_invalid_json_to_parse_error(tmp_path: Path) -> None:
+    process, audit, token = _start_subprocess(tmp_path, "healthy")
+    try:
+        assert process.stdin is not None
+        assert process.stdout is not None
+        assert process.stderr is not None
+        process.stdin.write(b'{"jsonrpc":\n')
+        process.stdin.flush()
+        response = process.stdout.readline()
+        assert json.loads(response) == {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32700, "message": "Parse error"},
+        }
+        assert process.wait(timeout=3) == 1
+        assert process.stderr.read() == b""
+        assert token.encode("utf-8") not in response
+        assert [event["event"] for event in _read_audit(audit)][-2:] == [
+            "fixture_failed",
+            "process_exit",
+        ]
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=3)
+        audit.close()
+        _close_process_streams(process)

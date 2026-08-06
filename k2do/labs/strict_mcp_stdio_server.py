@@ -16,7 +16,9 @@ from typing import Any
 
 PROTOCOL_VERSION = "2026-07-28"
 TOOL_NAME = "resilience_probe"
+FAULT_SENTINEL = "k2do-fixture-raw-fault-sentinel"
 MAX_LINE_BYTES = 64 * 1024
+AUDIT_TIMEOUT_SECONDS = 1.0
 BEHAVIORS = frozenset(
     {"healthy", "list_failure", "call_error_then_recover", "startup_hang", "call_hang"}
 )
@@ -32,6 +34,7 @@ AUDIT_EVENTS = frozenset(
         "call_failed",
         "call_held",
         "cancellation_observed",
+        "cancellation_ignored",
         "stdin_eof",
         "fixture_failed",
         "process_exit",
@@ -64,6 +67,10 @@ class ProtocolViolationError(ValueError):
     """A malformed frame or request, represented without hostile input."""
 
 
+class JSONParseError(ProtocolViolationError):
+    """A frame that cannot be interpreted as one unambiguous JSON value."""
+
+
 def canonical_json(value: Any) -> str:
     return json.dumps(
         value,
@@ -78,27 +85,29 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     value: dict[str, Any] = {}
     for key, child in pairs:
         if key in value:
-            raise ProtocolViolationError("duplicate_object_key")
+            raise JSONParseError("duplicate_object_key")
         value[key] = child
     return value
 
 
 def _reject_constant(_value: str) -> None:
-    raise ProtocolViolationError("non_finite_number")
+    raise JSONParseError("non_finite_number")
 
 
 def decode_message(raw: bytes) -> dict[str, Any]:
     """Decode one bounded JSON-RPC line with duplicate-key rejection."""
     if not raw or len(raw) > MAX_LINE_BYTES or not raw.endswith(b"\n"):
-        raise ProtocolViolationError("invalid_frame")
+        raise JSONParseError("invalid_frame")
     try:
         value = json.loads(
             raw[:-1].decode("utf-8", errors="strict"),
             object_pairs_hook=_reject_duplicate_keys,
             parse_constant=_reject_constant,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ProtocolViolationError("invalid_json") from exc
+    except JSONParseError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
+        raise JSONParseError("invalid_json") from exc
     if type(value) is not dict:
         raise ProtocolViolationError("request_not_object")
     return value
@@ -148,15 +157,15 @@ class StrictMCPServer:
         self,
         behavior: str,
         *,
-        private_canary: str,
+        fault_sentinel: str,
         audit: Callable[[str, str | None], None],
     ) -> None:
         if behavior not in BEHAVIORS:
             raise ValueError("unsupported_fixture_behavior")
-        if not private_canary:
-            raise ValueError("missing_private_canary")
+        if fault_sentinel != FAULT_SENTINEL:
+            raise ValueError("invalid_fault_sentinel")
         self.behavior = behavior
-        self._private_canary = private_canary
+        self._fault_sentinel = fault_sentinel
         self._audit = audit
         self._call_count = 0
         self._held_call_ids: set[str | int] = set()
@@ -219,7 +228,7 @@ class StrictMCPServer:
             return _error(
                 request_id,
                 -32603,
-                "Synthetic catalog fault: " + self._private_canary,
+                "Synthetic catalog fault: " + self._fault_sentinel,
             )
         self._audit("catalog_listed", "tools/list")
         return _result(
@@ -262,7 +271,7 @@ class StrictMCPServer:
             return _error(
                 request_id,
                 -32603,
-                "Synthetic call fault: " + self._private_canary,
+                "Synthetic call fault: " + self._fault_sentinel,
             )
         if self.behavior == "call_hang":
             self._held_call_ids.add(request_id)
@@ -286,8 +295,11 @@ class StrictMCPServer:
             raise ProtocolViolationError("invalid_cancellation_params")
         request_id = params["requestId"]
         reason = params.get("reason")
-        if request_id not in self._held_call_ids or (reason is not None and type(reason) is not str):
-            raise ProtocolViolationError("unknown_cancellation")
+        if reason is not None and type(reason) is not str:
+            raise ProtocolViolationError("invalid_cancellation_reason")
+        if request_id not in self._held_call_ids:
+            self._audit("cancellation_ignored", "notifications/cancelled")
+            return None
         self._held_call_ids.remove(request_id)
         self._audit("cancellation_observed", "notifications/cancelled")
         return None
@@ -309,8 +321,8 @@ class _UnixAuditSink:
         self._instance = instance
         self._ordinal = 0
         self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self._socket.settimeout(AUDIT_TIMEOUT_SECONDS)
         self._socket.connect(path)
-        self._writer = self._socket.makefile("w", encoding="utf-8", newline="\n")
 
     def record(self, event: str, method: str | None = None) -> None:
         if event not in AUDIT_EVENTS or (method is not None and method not in METHODS):
@@ -326,14 +338,10 @@ class _UnixAuditSink:
             payload["pid"] = os.getpid()
         if method is not None:
             payload["method"] = method
-        self._writer.write(canonical_json(payload) + "\n")
-        self._writer.flush()
+        self._socket.sendall((canonical_json(payload) + "\n").encode("utf-8"))
 
     def close(self) -> None:
-        try:
-            self._writer.close()
-        finally:
-            self._socket.close()
+        self._socket.close()
 
 
 def _send(message: dict[str, Any]) -> None:
@@ -341,12 +349,12 @@ def _send(message: dict[str, Any]) -> None:
     sys.stdout.buffer.flush()
 
 
-def _serve(server: StrictMCPServer, audit: _UnixAuditSink) -> None:
+def _serve(server: StrictMCPServer, audit: _UnixAuditSink) -> int:
     while True:
         raw = sys.stdin.buffer.readline(MAX_LINE_BYTES + 1)
         if raw == b"":
             audit.record("stdin_eof")
-            return
+            return 0
         request_id: str | int | None = None
         try:
             message = decode_message(raw)
@@ -354,9 +362,14 @@ def _serve(server: StrictMCPServer, audit: _UnixAuditSink) -> None:
             if _valid_request_id(candidate_id):
                 request_id = candidate_id  # type: ignore[assignment]
             response = server.handle(message)
+        except JSONParseError:
+            audit.record("fixture_failed")
+            _send(_error(None, -32700, "Parse error"))
+            return 1
         except ProtocolViolationError:
+            audit.record("fixture_failed")
             _send(_error(request_id, -32600, "Invalid Request"))
-            return
+            return 1
         if response is not None:
             _send(response)
 
@@ -378,11 +391,10 @@ def main(argv: list[str] | None = None) -> int:
         sink.record("booted")
         server = StrictMCPServer(
             os.environ["K2DO_MCP_LAB_BEHAVIOR"],
-            private_canary=os.environ["K2DO_MCP_LAB_AUDIT_TOKEN"],
+            fault_sentinel=FAULT_SENTINEL,
             audit=sink.record,
         )
-        _serve(server, sink)
-        return 0
+        return _serve(server, sink)
     except Exception:
         if sink is not None:
             try:
