@@ -1,7 +1,12 @@
 """Configuration schema for K2DO."""
 
+import unicodedata
+from ipaddress import ip_address
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Literal, Self
+from urllib.parse import urlsplit
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class TelegramConfig(BaseModel):
@@ -100,10 +105,106 @@ class ExecToolConfig(BaseModel):
 
 
 class MCPServerConfig(BaseModel):
-    command: str = ""
-    args: list[str] = Field(default_factory=list)
+    model_config = ConfigDict(extra="forbid")
+
+    command: str = Field(default="", max_length=4096)
+    args: list[str] = Field(default_factory=list, max_length=32)
     env: dict[str, str] = Field(default_factory=dict)
-    url: str = ""
+    url: str = Field(default="", max_length=4096)
+    protocol_mode: Literal["auto", "legacy"] = "auto"
+    connect_timeout_seconds: float = Field(default=10.0, ge=0.1, le=120.0)
+    call_timeout_seconds: float = Field(default=30.0, ge=0.1, le=300.0)
+    max_output_bytes: int = Field(default=16 * 1024, ge=256, le=64 * 1024)
+
+    @field_validator("command", "url")
+    @classmethod
+    def _validate_transport_text(cls, value: str) -> str:
+        if any(
+            ord(character) == 127
+            or unicodedata.category(character) in {"Cc", "Cf", "Cs"}
+            for character in value
+        ):
+            raise ValueError("MCP transport value contains control characters")
+        return value
+
+    @field_validator("args")
+    @classmethod
+    def _validate_args(cls, values: list[str]) -> list[str]:
+        if any(
+            type(value) is not str
+            or len(value.encode("utf-8")) > 4096
+            or "\x00" in value
+            for value in values
+        ):
+            raise ValueError("MCP arguments are invalid")
+        return values
+
+    @field_validator("env")
+    @classmethod
+    def _validate_env(cls, values: dict[str, str]) -> dict[str, str]:
+        if len(values) > 64:
+            raise ValueError("MCP environment has too many entries")
+        for key, value in values.items():
+            if (
+                not key
+                or len(key) > 128
+                or not (key[0].isalpha() or key[0] == "_")
+                or any(not (character.isalnum() or character == "_") for character in key)
+                or len(value.encode("utf-8")) > 16 * 1024
+                or "\x00" in value
+            ):
+                raise ValueError("MCP environment contains an invalid entry")
+        return values
+
+    @model_validator(mode="after")
+    def _validate_transport(self) -> Self:
+        if bool(self.command) == bool(self.url):
+            raise ValueError("MCP server must configure exactly one transport")
+        if self.url:
+            if any(ord(character) < 33 or ord(character) > 126 for character in self.url):
+                raise ValueError("MCP URL must contain printable ASCII characters only")
+            if "\\" in self.url:
+                raise ValueError("MCP URL must not contain backslashes")
+            if "#" in self.url:
+                raise ValueError("MCP URL must not include a fragment")
+            # MCP endpoints in K2DO do not use URL query configuration. Refusing
+            # every query avoids putting credentials in URLs and keeps the URL's
+            # meaning identical across urllib and the SDK's httpx2 transport.
+            if "?" in self.url:
+                raise ValueError("MCP URL must not include a query string")
+
+            try:
+                parsed = urlsplit(self.url)
+                host = parsed.hostname
+                # Accessing ``port`` also rejects malformed and out-of-range ports.
+                port = parsed.port
+            except ValueError as error:
+                raise ValueError("MCP URL is invalid") from error
+
+            if parsed.scheme not in {"http", "https"} or not host:
+                raise ValueError("MCP URL must use HTTP or HTTPS and include a host")
+            if parsed.username is not None or parsed.password is not None:
+                raise ValueError("MCP URL must not include user information")
+            if "%" in parsed.netloc:
+                raise ValueError("MCP URL authority must not use percent encoding")
+            if parsed.netloc.endswith(":") or port == 0:
+                raise ValueError("MCP URL port is invalid")
+
+            if parsed.scheme == "http" and not _is_local_mcp_host(host):
+                raise ValueError("Remote MCP URLs must use HTTPS")
+        return self
+
+
+def _is_local_mcp_host(host: str) -> bool:
+    """Return whether cleartext HTTP is safe for this explicit local host."""
+    if host.casefold() == "localhost":
+        return True
+    if "%" in host:
+        return False
+    try:
+        return ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 class ToolsConfig(BaseModel):
@@ -111,6 +212,23 @@ class ToolsConfig(BaseModel):
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
     restrict_to_workspace: bool = False
     mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
+
+    @field_validator("mcp_servers")
+    @classmethod
+    def _validate_server_names(
+        cls,
+        values: dict[str, MCPServerConfig],
+    ) -> dict[str, MCPServerConfig]:
+        if len(values) > 16:
+            raise ValueError("Too many MCP servers are configured")
+        if any(
+            not name
+            or len(name.encode("utf-8")) > 256
+            or any(ord(character) < 32 or ord(character) == 127 for character in name)
+            for name in values
+        ):
+            raise ValueError("MCP server name is invalid")
+        return values
 
 
 class Config(BaseModel):

@@ -30,7 +30,9 @@ dependencies = [
     "socksio>=1.0.0",
     "python-socks[asyncio]>=2.4.0",
     "prompt-toolkit>=3.0.0",
-    "mcp>=1.0.0",
+    "mcp==2.0.0",
+    "httpx2==2.9.1",
+    "jsonschema==4.26.0",
     "json-repair>=0.30.0",
 ]
 
