@@ -1,0 +1,58 @@
+{
+  "generator": {
+    "arguments": [
+      "--all-build-deps",
+      "--allow-unsafe",
+      "--extra=dev",
+      "--generate-hashes",
+      "--no-config",
+      "--no-emit-index-url",
+      "--no-emit-trusted-host",
+      "--no-header",
+      "--resolver=backtracking",
+      "--strip-extras"
+    ],
+    "bootstrap": [
+      "pip==26.1.2"
+    ],
+    "pip": "26.1.2",
+    "pip-tools": "7.6.0",
+    "strategy": "project-with-build-deps plus evidence and bootstrap lock concatenation"
+  },
+  "lock": {
+    "bytes": 182275,
+    "path": "requirements-ci-py312.lock",
+    "sha256": "484bfee1e90bccbea014f423d8ada42caec903806dd10f9be56eaebed1d70e8b"
+  },
+  "repository": "omar07ibrahim/k2do",
+  "revision": "058c02c9df6f239edb75791a3a615fc2319d45d0",
+  "runtime": {
+    "implementation": "CPython",
+    "machine": "x86_64",
+    "python": "3.12.13",
+    "system": "Linux"
+  },
+  "schema_version": "k2do-dependency-lock-candidate/v1",
+  "sources": {
+    ".github/workflows/dependency-lock-candidate.yml": {
+      "bytes": 9484,
+      "sha256": "3794879a9bca0fee2b19a3356aa12d9197130c17891b2e6b3925254def1ecad5"
+    },
+    "pyproject.toml": {
+      "bytes": 1701,
+      "sha256": "9701534c68a04d0896ce56e0bc5fa259f6efeb18c7516de1ba7511adf4512a14"
+    },
+    "requirements-evidence.txt": {
+      "bytes": 15,
+      "sha256": "41b54a6fb2918667ca47a61d73b522629d84490f3d78f0f20b21135faba10d35"
+    }
+  },
+  "verification": {
+    "byte_identical": true,
+    "fresh_compilations": 2,
+    "fresh_mcp_evidence_check": true,
+    "full_pytest": true,
+    "pip_check": true,
+    "require_hashes_install": true
+  }
+}
