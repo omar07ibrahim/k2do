@@ -66,7 +66,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          compile_lock() {
+          compile_project() {
             pip-compile \
               --all-build-deps \
               --allow-unsafe \
@@ -79,10 +79,35 @@ jobs:
               --resolver backtracking \
               --strip-extras \
               --output-file "$1" \
-              pyproject.toml requirements-evidence.txt
+              pyproject.toml
           }
-          compile_lock "$RUNNER_TEMP/lock-a.txt"
-          compile_lock "$RUNNER_TEMP/lock-b.txt"
+          compile_evidence() {
+            pip-compile \
+              --allow-unsafe \
+              --generate-hashes \
+              --no-config \
+              --no-emit-index-url \
+              --no-emit-trusted-host \
+              --no-header \
+              --resolver backtracking \
+              --strip-extras \
+              --output-file "$1" \
+              requirements-evidence.txt
+          }
+          compile_lock() {
+            local target="$1"
+            local suffix="$2"
+            local project="$RUNNER_TEMP/project-$suffix.txt"
+            local evidence="$RUNNER_TEMP/evidence-$suffix.txt"
+            compile_project "$project"
+            compile_evidence "$evidence"
+            if grep -q '^pillow==' "$project"; then
+              exit 1
+            fi
+            cat "$project" "$evidence" > "$target"
+          }
+          compile_lock "$RUNNER_TEMP/lock-a.txt" a
+          compile_lock "$RUNNER_TEMP/lock-b.txt" b
           cmp "$RUNNER_TEMP/lock-a.txt" "$RUNNER_TEMP/lock-b.txt"
           test -s "$RUNNER_TEMP/lock-a.txt"
           grep -q -- '--hash=sha256:' "$RUNNER_TEMP/lock-a.txt"
@@ -146,6 +171,7 @@ jobs:
               "generator": {
                   "pip": importlib.metadata.version("pip"),
                   "pip-tools": importlib.metadata.version("pip-tools"),
+                  "strategy": "project-with-build-deps plus evidence-only lock concatenation",
                   "arguments": [
                       "--all-build-deps",
                       "--allow-unsafe",
