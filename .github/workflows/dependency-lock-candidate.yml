@@ -1,0 +1,200 @@
+name: Dependency lock candidate
+
+on:
+  push:
+    branches:
+      - feat/provenance-and-safety
+    paths:
+      - .github/workflows/dependency-lock-candidate.yml
+      - pyproject.toml
+      - requirements-evidence.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-lock-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONHASHSEED: "0"
+
+jobs:
+  compile-and-prove:
+    name: Compile and validate the CPython 3.12 lock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the immutable push revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Set up the canonical Python runtime
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.13"
+
+      - name: Assert the candidate boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "omar07ibrahim/k2do"
+          test "$GITHUB_EVENT_NAME" = "push"
+          test "$GITHUB_REF" = "refs/heads/feat/provenance-and-safety"
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(python -c 'import platform; print(platform.python_version())')" = "3.12.13"
+          test -z "${OPENAI_API_KEY:-}"
+          test -z "${K2_API_KEY:-}"
+          test "$(git status --porcelain=v1 --untracked-files=all --ignore-submodules=none)" = ""
+
+      - name: Install the exact lock compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install pip==26.2.1 pip-tools==7.6.0
+          test "$(python -m pip --version | awk '{print $2}')" = "26.2.1"
+          test "$(pip-compile --version | awk '{print $3}')" = "7.6.0"
+
+      - name: Compile the complete environment twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          compile_lock() {
+            pip-compile \
+              --all-build-deps \
+              --allow-unsafe \
+              --extra dev \
+              --generate-hashes \
+              --no-config \
+              --no-emit-index-url \
+              --no-emit-trusted-host \
+              --no-header \
+              --resolver backtracking \
+              --strip-extras \
+              --output-file "$1" \
+              pyproject.toml requirements-evidence.txt
+          }
+          compile_lock "$RUNNER_TEMP/lock-a.txt"
+          compile_lock "$RUNNER_TEMP/lock-b.txt"
+          cmp "$RUNNER_TEMP/lock-a.txt" "$RUNNER_TEMP/lock-b.txt"
+          test -s "$RUNNER_TEMP/lock-a.txt"
+          grep -q -- '--hash=sha256:' "$RUNNER_TEMP/lock-a.txt"
+          grep -q '^mcp==2.0.0' "$RUNNER_TEMP/lock-a.txt"
+          grep -q '^httpx2==2.9.1' "$RUNNER_TEMP/lock-a.txt"
+          grep -q '^pillow==12.3.0' "$RUNNER_TEMP/lock-a.txt"
+          if grep -Eq '(/home/runner|/opt/hostedtoolcache|GITHUB_|https?://[^[:space:]]*@)' "$RUNNER_TEMP/lock-a.txt"; then
+            exit 1
+          fi
+
+      - name: Install and exercise only the hashed environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="$RUNNER_TEMP/locked-runtime"
+          python -m venv "$runtime"
+          "$runtime/bin/python" -m pip install \
+            --require-hashes \
+            --requirement "$RUNNER_TEMP/lock-a.txt"
+          "$runtime/bin/python" -m pip install \
+            --no-build-isolation \
+            --no-deps \
+            --editable .
+          "$runtime/bin/python" -m pip check
+          env -u OPENAI_API_KEY -u K2_API_KEY -u PYTHONHOME -u PYTHONPATH \
+            "$runtime/bin/python" -m pytest -p no:cacheprovider -q
+          env -u OPENAI_API_KEY -u K2_API_KEY -u PYTHONHOME -u PYTHONPATH \
+            "$runtime/bin/python" -m k2do.labs.mcp_evidence_recorder check --fresh
+
+      - name: Bind the candidate to its exact sources and toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/candidate"
+          mkdir -m 700 "$out"
+          install -m 0644 "$RUNNER_TEMP/lock-a.txt" "$out/requirements-ci-py312.lock"
+          LOCK="$out/requirements-ci-py312.lock" OUT="$out/provenance.json" python - <<'PY'
+          import hashlib
+          import importlib.metadata
+          import json
+          import os
+          import platform
+          from pathlib import Path
+
+          sources = [
+              Path("pyproject.toml"),
+              Path("requirements-evidence.txt"),
+              Path(".github/workflows/dependency-lock-candidate.yml"),
+          ]
+          lock = Path(os.environ["LOCK"])
+          document = {
+              "schema_version": "k2do-dependency-lock-candidate/v1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "revision": os.environ["GITHUB_SHA"],
+              "runtime": {
+                  "implementation": platform.python_implementation(),
+                  "python": platform.python_version(),
+                  "system": platform.system(),
+                  "machine": platform.machine(),
+              },
+              "generator": {
+                  "pip": importlib.metadata.version("pip"),
+                  "pip-tools": importlib.metadata.version("pip-tools"),
+                  "arguments": [
+                      "--all-build-deps",
+                      "--allow-unsafe",
+                      "--extra=dev",
+                      "--generate-hashes",
+                      "--no-config",
+                      "--no-emit-index-url",
+                      "--no-emit-trusted-host",
+                      "--no-header",
+                      "--resolver=backtracking",
+                      "--strip-extras",
+                  ],
+              },
+              "sources": {
+                  str(path): {
+                      "bytes": path.stat().st_size,
+                      "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                  }
+                  for path in sources
+              },
+              "lock": {
+                  "path": "requirements-ci-py312.lock",
+                  "bytes": lock.stat().st_size,
+                  "sha256": hashlib.sha256(lock.read_bytes()).hexdigest(),
+              },
+              "verification": {
+                  "fresh_compilations": 2,
+                  "byte_identical": True,
+                  "require_hashes_install": True,
+                  "pip_check": True,
+                  "full_pytest": True,
+                  "fresh_mcp_evidence_check": True,
+              },
+          }
+          Path(os.environ["OUT"]).write_text(
+              json.dumps(document, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          test "$(find "$out" -mindepth 1 -maxdepth 1 -type f -printf '%f\n' | sort)" = $'provenance.json\nrequirements-ci-py312.lock'
+          test -z "$(find "$out" -type l -print -quit)"
+          test "$(git status --porcelain=v1 --untracked-files=all --ignore-submodules=none)" = ""
+
+      - name: Upload the validated lock candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: k2do-dependency-lock-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/candidate/
+          if-no-files-found: error
+          include-hidden-files: false
+          compression-level: 0
+          retention-days: 14
