@@ -94,17 +94,39 @@ jobs:
               --output-file "$1" \
               requirements-evidence.txt
           }
+          compile_bootstrap() {
+            local output="$1"
+            local input="$2"
+            printf '%s\n' 'pip==26.1.2' > "$input"
+            pip-compile \
+              --allow-unsafe \
+              --generate-hashes \
+              --no-config \
+              --no-emit-index-url \
+              --no-emit-trusted-host \
+              --no-header \
+              --resolver backtracking \
+              --strip-extras \
+              --output-file "$output" \
+              "$input"
+          }
           compile_lock() {
             local target="$1"
             local suffix="$2"
             local project="$RUNNER_TEMP/project-$suffix.txt"
             local evidence="$RUNNER_TEMP/evidence-$suffix.txt"
+            local bootstrap="$RUNNER_TEMP/bootstrap-$suffix.txt"
+            local bootstrap_input="$RUNNER_TEMP/bootstrap-$suffix.in"
             compile_project "$project"
             compile_evidence "$evidence"
-            if grep -q '^pillow==' "$project"; then
+            compile_bootstrap "$bootstrap" "$bootstrap_input"
+            if grep -Eq '^(pillow|pip)==' "$project"; then
               exit 1
             fi
-            cat "$project" "$evidence" > "$target"
+            if grep -q '^pip==' "$evidence"; then
+              exit 1
+            fi
+            cat "$project" "$evidence" "$bootstrap" > "$target"
           }
           compile_lock "$RUNNER_TEMP/lock-a.txt" a
           compile_lock "$RUNNER_TEMP/lock-b.txt" b
@@ -114,6 +136,7 @@ jobs:
           grep -q '^mcp==2.0.0' "$RUNNER_TEMP/lock-a.txt"
           grep -q '^httpx2==2.9.1' "$RUNNER_TEMP/lock-a.txt"
           grep -q '^pillow==12.3.0' "$RUNNER_TEMP/lock-a.txt"
+          grep -q '^pip==26.1.2' "$RUNNER_TEMP/lock-a.txt"
           if grep -Eq '(/home/runner|/opt/hostedtoolcache|GITHUB_|https?://[^[:space:]]*@)' "$RUNNER_TEMP/lock-a.txt"; then
             exit 1
           fi
@@ -171,7 +194,8 @@ jobs:
               "generator": {
                   "pip": importlib.metadata.version("pip"),
                   "pip-tools": importlib.metadata.version("pip-tools"),
-                  "strategy": "project-with-build-deps plus evidence-only lock concatenation",
+                  "strategy": "project-with-build-deps plus evidence and bootstrap lock concatenation",
+                  "bootstrap": ["pip==26.1.2"],
                   "arguments": [
                       "--all-build-deps",
                       "--allow-unsafe",
