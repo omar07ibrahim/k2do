@@ -2,39 +2,86 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
+      - feat/provenance-and-safety
   pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONHASHSEED: "0"
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Locked CPython 3.12 offline suite
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
-      - name: Check out source
+      - name: Check out the immutable event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.sha }}
 
-      - name: Set up Python
+      - name: Set up the canonical Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.12.13"
           cache: pip
+          cache-dependency-path: requirements-ci-py312.lock
 
-      - name: Install project and test tools
-        run: >-
-          python -m pip install --disable-pip-version-check
-          -r requirements-evidence.txt
-          -e ".[dev]"
+      - name: Assert the clean event boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "omar07ibrahim/k2do"
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          case "$GITHUB_EVENT_NAME" in
+            push)
+              test "$GITHUB_REF" = "refs/heads/main" ||
+                test "$GITHUB_REF" = "refs/heads/feat/provenance-and-safety"
+              ;;
+            pull_request)
+              [[ "$GITHUB_REF" =~ ^refs/pull/[0-9]+/merge$ ]]
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          test "$(python -c 'import platform; print(platform.python_version())')" = "3.12.13"
+          test -z "${OPENAI_API_KEY:-}"
+          test -z "${K2_API_KEY:-}"
+          test "$(git status --porcelain=v1 --untracked-files=all --ignore-submodules=none)" = ""
+
+      - name: Install only the hash-locked environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install \
+            --require-hashes \
+            --requirement requirements-ci-py312.lock
+          test "$(python -m pip --version | awk '{print $2}')" = "26.1.2"
+          python -m pip install \
+            --no-build-isolation \
+            --no-deps \
+            --editable .
+          python -m pip check
 
       - name: Run the complete offline suite
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
         run: python -m pytest -p no:cacheprovider -q
 
       - name: Lint the hardened lifecycle boundary
@@ -65,10 +112,5 @@ jobs:
           tests/test_subagent_shutdown.py
           --ignore E501,W293,I001,ASYNC109,ASYNC110,ASYNC210,ASYNC230,ASYNC240,ASYNC250,ASYNC251
 
-      - name: Verify committed MCP fault evidence
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
-        run: |
-          if [ -f docs/mcp-fault-evidence/manifest.json ]; then
-            python -m k2do.labs.mcp_evidence_recorder check --fresh
-          fi
+      - name: Verify the committed MCP fault evidence
+        run: python -m k2do.labs.mcp_evidence_recorder check --fresh

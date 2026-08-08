@@ -1,16 +1,29 @@
-name: Record evidence
+name: Verify reproducible evidence
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+      - feat/provenance-and-safety
     paths:
       - .github/workflows/record-evidence.yml
 
 permissions:
   contents: read
 
+concurrency:
+  group: verify-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONHASHSEED: "0"
+
 jobs:
-  record:
+  verify:
     strategy:
       fail-fast: false
       matrix:
@@ -21,42 +34,64 @@ jobs:
             module: k2do.labs.trace_evidence_recorder
 
     name: ${{ matrix.bundle.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
-      - name: Check out clean source commit
+      - name: Check out the immutable event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.sha }}
 
-      - name: Set up Python
+      - name: Set up the canonical Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.12.13"
           cache: pip
+          cache-dependency-path: requirements-ci-py312.lock
 
-      - name: Install capture dependencies outside the source tree
-        run: >-
-          python -m pip install --disable-pip-version-check
-          -r requirements-evidence.txt
-          ".[dev]"
+      - name: Assert the clean capture source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "omar07ibrahim/k2do"
+          test "$GITHUB_EVENT_NAME" = "push" ||
+            test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(python -c 'import platform; print(platform.python_version())')" = "3.12.13"
+          test -z "${OPENAI_API_KEY:-}"
+          test -z "${K2_API_KEY:-}"
+          test "$(git status --porcelain=v1 --untracked-files=all --ignore-submodules=none)" = ""
 
-      - name: Assert a clean capture source
-        run: test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - name: Install only the hash-locked environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install \
+            --require-hashes \
+            --requirement requirements-ci-py312.lock
+          test "$(python -m pip --version | awk '{print $2}')" = "26.1.2"
+          python -m pip install \
+            --no-build-isolation \
+            --no-deps \
+            --editable .
+          python -m pip check
 
-      - name: Record exactly one source-bound bundle
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
-        run: python -m ${{ matrix.bundle.module }} record
-
-      - name: Verify the fresh bundle
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
+      - name: Reproduce and verify the committed bundle
         run: python -m ${{ matrix.bundle.module }} check
 
-      - name: Upload the verified bundle
+      - name: Prove verification was read-only
+        run: test -z "$(git status --porcelain=v1 --untracked-files=all --ignore-submodules=none)"
+
+      - name: Upload the verified committed bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.bundle.name }}-${{ github.sha }}
-          path: docs/${{ matrix.bundle.name }}
+          path: docs/${{ matrix.bundle.name }}/
           if-no-files-found: error
-          retention-days: 1
+          include-hidden-files: false
+          compression-level: 0
+          retention-days: 14

@@ -3,12 +3,14 @@ name: Record MCP fault evidence
 on:
   push:
     branches:
+      - main
       - feat/provenance-and-safety
     paths:
       - .github/workflows/ci.yml
       - .github/workflows/record-mcp-fault-evidence.yml
       - pyproject.toml
       - requirements-evidence.txt
+      - requirements-ci-py312.lock
       - k2do/agent/loop.py
       - k2do/agent/tools/mcp.py
       - k2do/labs/mcp_evidence_recorder.py
@@ -19,55 +21,89 @@ on:
       - tests/test_strict_mcp_stdio_server.py
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: mcp-fault-evidence-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONHASHSEED: "0"
 
 jobs:
   record:
-    runs-on: ubuntu-latest
+    name: Rebuild the source-bound MCP bundle
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
-      - name: Check out source
+      - name: Check out the immutable push revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.sha }}
 
-      - name: Set up Python
+      - name: Set up the canonical Python runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.12.13"
           cache: pip
+          cache-dependency-path: requirements-ci-py312.lock
 
-      - name: Install project and evidence tools
-        run: >-
-          python -m pip install --disable-pip-version-check
-          -r requirements-evidence.txt
-          -e ".[dev]"
+      - name: Assert the clean capture boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "omar07ibrahim/k2do"
+          test "$GITHUB_EVENT_NAME" = "push"
+          test "$GITHUB_REF" = "refs/heads/main" ||
+            test "$GITHUB_REF" = "refs/heads/feat/provenance-and-safety"
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(python -c 'import platform; print(platform.python_version())')" = "3.12.13"
+          test -z "${OPENAI_API_KEY:-}"
+          test -z "${K2_API_KEY:-}"
+          test "$(git status --porcelain=v1 --untracked-files=all --ignore-submodules=none)" = ""
 
-      - name: Capture and verify the committed lab
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
+      - name: Install only the hash-locked environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install \
+            --require-hashes \
+            --requirement requirements-ci-py312.lock
+          test "$(python -m pip --version | awk '{print $2}')" = "26.1.2"
+          python -m pip install \
+            --no-build-isolation \
+            --no-deps \
+            --editable .
+          python -m pip check
+
+      - name: Capture and fresh-check the exact source revision
         run: |
           python -m k2do.labs.mcp_evidence_recorder record --replace
           python -m k2do.labs.mcp_evidence_recorder check --fresh
 
-      - name: Commit only the verified evidence bundle
-        env:
-          GIT_AUTHOR_NAME: Omar Ibrahim
-          GIT_AUTHOR_EMAIL: 31526072+omar07ibrahim@users.noreply.github.com
-          GIT_COMMITTER_NAME: Omar Ibrahim
-          GIT_COMMITTER_EMAIL: 31526072+omar07ibrahim@users.noreply.github.com
+      - name: Limit mutations to the verified bundle
+        shell: bash
         run: |
-          git add -- docs/mcp-fault-evidence
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          unexpected=$(git diff --cached --name-only | grep -Ev '^docs/mcp-fault-evidence/' || true)
+          set -euo pipefail
+          changed="$(git status --porcelain=v1 --untracked-files=all | cut -c4-)"
+          test -n "$changed"
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev '^docs/mcp-fault-evidence/' || true)"
           test -z "$unexpected"
-          git diff --cached --check
-          git commit -m "Record verified MCP fault evidence"
-          git push origin "HEAD:${GITHUB_REF}"
+          test -z "$(find docs/mcp-fault-evidence -type l -print -quit)"
+
+      - name: Upload the verified candidate bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: k2do-mcp-fault-evidence-${{ github.sha }}
+          path: docs/mcp-fault-evidence/
+          if-no-files-found: error
+          include-hidden-files: false
+          compression-level: 0
+          retention-days: 14
