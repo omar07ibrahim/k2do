@@ -58,8 +58,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install pip==26.2.1 pip-tools==7.6.0
-          test "$(python -m pip --version | awk '{print $2}')" = "26.2.1"
+          python -m pip install pip==26.1.2 pip-tools==7.6.0
+          test "$(python -m pip --version | awk '{print $2}')" = "26.1.2"
           test "$(pip-compile --version | awk '{print $3}')" = "7.6.0"
 
       - name: Compile the complete environment twice
