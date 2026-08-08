@@ -99,6 +99,7 @@ jobs:
             local input="$2"
             printf '%s\n' 'pip==26.1.2' > "$input"
             pip-compile \
+              --no-annotate \
               --allow-unsafe \
               --generate-hashes \
               --no-config \
