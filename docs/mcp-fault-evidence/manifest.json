@@ -62,19 +62,19 @@
   },
   "schema": "k2do.mcp-fault-evidence/v1",
   "source": {
-    "commit": "fc770c8e2a3e60ef95cafc02b0774fd711dc3b60",
+    "commit": "c77bc349fe5964fb300bd1cbf517ec9b0d45a740",
     "files": {
       ".github/workflows/ci.yml": {
-        "bytes": 2211,
-        "git_blob": "945a21fa2734ff6257705616d166c77845a878a4",
+        "bytes": 3681,
+        "git_blob": "ef582b8b2acf1a016a2aff04335f8e396fb35249",
         "git_mode": "100644",
-        "sha256": "e7ba22820cb711cd818af4891745d5a1a7f4837d7c49d6b55d29bc1afaba0b3c"
+        "sha256": "8a1a37213104223d782dc688904f165b313a8b37ad72bc08cf31226ab20936c9"
       },
       ".github/workflows/record-mcp-fault-evidence.yml": {
-        "bytes": 2253,
-        "git_blob": "15e285757f123f70f9e3025efe492283c947d8d0",
+        "bytes": 3679,
+        "git_blob": "7dd1beae38f96a7c5b2370926ed5e9d1a1583e22",
         "git_mode": "100644",
-        "sha256": "5724f07ec5d98b24a16e8e7d5317b749d2ceced211c49b4bf5d5b0a1c4df6880"
+        "sha256": "667b016ff8df104539b9b05e46186b1eda7ae08b2c99141c26d752033cdc2bb0"
       },
       "k2do/agent/loop.py": {
         "bytes": 99842,
@@ -137,7 +137,7 @@
         "sha256": "06cf04c8ab3ae851bbbb035e7f0d80701403d4b851b3f2511d87bbd29f04d702"
       }
     },
-    "tree": "ddd2bce824f73c6c12815a9f9959bb4f75e30419",
+    "tree": "6a2bf8fb19f8fe6a3cfd723e44d84f140445a06c",
     "verification": "current committed blobs must remain byte-identical"
   },
   "status": "verified"
