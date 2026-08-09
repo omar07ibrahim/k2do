@@ -46,6 +46,8 @@ _ISOLATED_BOOTSTRAP: Final = (
 _READER_COMMAND: Final = ("python", "-m", _ISOLATED_MODULE)
 _TRANSCRIPT_COMMAND: Final = "$ python -m k2do.labs.agent_handoff_trace\n"
 _EVIDENCE_REQUIREMENTS: Final = "requirements-evidence.txt"
+_EVIDENCE_LOCK: Final = "requirements-ci-py312.lock"
+_EVIDENCE_LOCK_PROVENANCE: Final = "requirements-ci-py312.provenance.json"
 _NETWORK_OBSERVATION_SCOPE: Final = (
     "one Linux strace run of the committed handoff lab and all child threads; "
     "the listed communication syscalls exclude passive event-loop bookkeeping"
@@ -90,9 +92,15 @@ def _source_paths(repository: Path, head: str) -> tuple[str, ...]:
         path
         for path, _mode, _object_id in evidence_core._committed_package_entries(repository, head)
     ]
-    paths = ("pyproject.toml", _EVIDENCE_REQUIREMENTS, *package_paths)
+    paths = (
+        "pyproject.toml",
+        _EVIDENCE_REQUIREMENTS,
+        _EVIDENCE_LOCK,
+        _EVIDENCE_LOCK_PROVENANCE,
+        *package_paths,
+    )
     _require(len(paths) == len(set(paths)), "source_path_duplicate")
-    _require(list(paths[2:]) == sorted(paths[2:]), "source_paths_not_canonical")
+    _require(list(paths[4:]) == sorted(paths[4:]), "source_paths_not_canonical")
     return paths
 
 
@@ -595,10 +603,10 @@ def _runtime_manifest() -> dict[str, Any]:
     _require(values["pillow_version"] == "12.3.0", "pillow_version_changed")
     return {
         **values,
-        "application_dependencies_locked": False,
+        "application_dependencies_locked": True,
         "environment_claim": (
-            "Pillow is exactly pinned for visual rendering; the application dependency set "
-            "is not lock-reproduced"
+            "CPython 3.12 CI dependencies are hash-locked by requirements-ci-py312.lock; "
+            "Pillow remains exactly pinned at 12.3.0"
         ),
         "font": "Pillow embedded default",
     }
@@ -645,8 +653,8 @@ def _build_manifest(
             "files": {name: dict(sources[name]) for name in sorted(sources)},
             "tree": tree,
             "verification": (
-                "all current committed k2do package blobs plus pyproject.toml and "
-                "requirements-evidence.txt; "
+                "all current committed k2do package blobs plus pyproject.toml, "
+                "requirements-evidence.txt, requirements-ci-py312.lock, and its provenance; "
                 "content identity required, no ancestry requirement"
             ),
         },
@@ -749,13 +757,13 @@ def _strict_manifest(
             "python_version",
             "zlib_version",
         }
-        and runtime["application_dependencies_locked"] is False
+        and runtime["application_dependencies_locked"] is True
         and runtime["pillow_version"] == "12.3.0"
         and runtime["font"] == "Pillow embedded default"
         and runtime["environment_claim"]
         == (
-            "Pillow is exactly pinned for visual rendering; the application dependency set "
-            "is not lock-reproduced"
+            "CPython 3.12 CI dependencies are hash-locked by requirements-ci-py312.lock; "
+            "Pillow remains exactly pinned at 12.3.0"
         )
         and all(
             isinstance(runtime[key], str) and bool(_SAFE_RUNTIME_RE.fullmatch(runtime[key]))
@@ -782,8 +790,8 @@ def _strict_manifest(
         and bool(_HEX_OBJECT_RE.fullmatch(source["tree"]))
         and source["verification"]
         == (
-            "all current committed k2do package blobs plus pyproject.toml and "
-            "requirements-evidence.txt; "
+            "all current committed k2do package blobs plus pyproject.toml, "
+            "requirements-evidence.txt, requirements-ci-py312.lock, and its provenance; "
             "content identity required, no ancestry requirement"
         )
         and isinstance(source["files"], dict)

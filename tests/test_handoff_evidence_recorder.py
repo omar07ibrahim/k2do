@@ -236,11 +236,13 @@ def test_source_set_covers_setup_contract_and_every_committed_package_blob() -> 
     assert source_paths == (
         "pyproject.toml",
         "requirements-evidence.txt",
+        "requirements-ci-py312.lock",
+        "requirements-ci-py312.provenance.json",
         *package_paths,
     )
     assert "k2do/labs/agent_handoff_trace.py" in source_paths
     assert "k2do/labs/trace_evidence_recorder.py" in source_paths
-    assert all(path.startswith("k2do/") for path in source_paths[2:])
+    assert all(path.startswith("k2do/") for path in source_paths[4:])
 
 
 def test_atomic_publication_writes_exact_regular_files(tmp_path: Path) -> None:

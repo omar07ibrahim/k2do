@@ -49,6 +49,8 @@ _RENAME_NOREPLACE: Final = 1
 
 _SOURCE_PATHS: Final = (
     "pyproject.toml",
+    "requirements-ci-py312.lock",
+    "requirements-ci-py312.provenance.json",
     "k2do/__init__.py",
     "k2do/agent/__init__.py",
     "k2do/agent/deepthink.py",
@@ -1257,9 +1259,9 @@ def _runtime_manifest() -> dict[str, Any]:
     )
     return {
         "architecture": platform.machine(),
-        "dependency_environment_locked": False,
+        "dependency_environment_locked": True,
         "environment_claim": (
-            "runtime versions are recorded; the dependency environment is not lock-reproduced"
+            "CPython 3.12 CI dependencies are hash-locked by requirements-ci-py312.lock"
         ),
         "k2do_distribution_version": k2do_version,
         "operating_system": platform.system(),
@@ -1576,9 +1578,9 @@ def _strict_manifest(manifest_bytes: bytes) -> dict[str, Any]:
             "python_implementation",
             "python_version",
         }
-        and runtime["dependency_environment_locked"] is False
+        and runtime["dependency_environment_locked"] is True
         and runtime["environment_claim"]
-        == "runtime versions are recorded; the dependency environment is not lock-reproduced"
+        == "CPython 3.12 CI dependencies are hash-locked by requirements-ci-py312.lock"
         and all(
             isinstance(runtime[key], str) and bool(_SAFE_RUNTIME_RE.fullmatch(runtime[key]))
             for key in (
