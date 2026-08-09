@@ -32,7 +32,7 @@ a model request.
 
 ```mermaid
 flowchart LR
-    V["Create Python 3.11+ venv"] --> I["Install dev + pinned evidence renderer"]
+    V["Create CPython 3.12.13 venv"] --> I["Install 96 hash-locked requirements"]
     I --> M["Run production MCP fault lab"]
     M --> MC["Fresh-check MCP visual bundle"]
     MC --> H["Run routed handoff lab"]
@@ -42,10 +42,10 @@ flowchart LR
 ```
 
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e '.[dev]'
-python -m pip install -r requirements-evidence.txt
+python -m pip install --require-hashes -r requirements-ci-py312.lock
+python -m pip install --no-build-isolation --no-deps -e .
 
 python -m k2do.labs.mcp_fault_lab
 python -m k2do.labs.mcp_evidence_recorder check --fresh
@@ -56,11 +56,13 @@ python -m k2do.labs.trace_evidence_recorder check
 python -m pytest -q
 ```
 
-The setup is supported on CPython 3.11 or newer. It is not yet byte-for-byte
-environment reproducible: application dependencies have lower bounds and the
-repository has no lockfile. The raster evidence path pins Pillow `12.3.0`; its
-manifest also records Python, OS, architecture, FreeType, zlib, and K2DO
-versions.
+The application supports CPython 3.11 or newer; the canonical hosted evidence
+path fixes Ubuntu 24.04 and CPython 3.12.13. Its lock contains 96 exact
+requirements guarded by 2,082 SHA-256 hashes and is installed with
+`--require-hashes`. The adjacent provenance document binds the lock to pip
+26.1.2, pip-tools 7.6.0, and its three compiler inputs. Other Python and OS
+combinations remain supported application targets, not claims made by this CI
+lock.
 
 ## Production MCP lifecycle under faults
 
@@ -114,7 +116,7 @@ Run the same credential-free path:
 
 The [MCP evidence manifest](docs/mcp-fault-evidence/manifest.json) binds 12
 capture-critical workflow, implementation, fixture, recorder, and test blobs
-to source commit <code>fc770c8</code>. It records Python 3.12.13, MCP 2.0.0,
+to source commit <code>c77bc34</code>. It records Python 3.12.13, MCP 2.0.0,
 and Pillow 12.3.0, verifies every artifact hash/media type, deterministically
 re-renders the PNG/SVG/GIF set, and compares a fresh receipt. The fixture is
 designed around stdio plus a private authenticated AF_UNIX lifecycle oracle;
@@ -174,9 +176,10 @@ the production tool, hashed, and removed with that workspace.
 | Cleanup | 0 active provider calls; temporary workspace removed |
 | Communication observation | 0 calls observed in the manifest's listed Linux `strace` communication-syscall set |
 
-The handoff manifest binds `pyproject.toml`, `requirements-evidence.txt`, and
-every committed blob under `k2do/`—67 source files for the current capture—by
-Git mode, blob ID, byte count, and SHA-256. `check` regenerates all eight
+The handoff manifest binds every committed blob under `k2do/`, project and
+renderer inputs, plus the lock and its provenance at source commit
+`165b7c1`—72 source files in total—by Git mode, blob ID, byte count, and
+SHA-256. `check` regenerates all eight
 artifacts and, on this Linux host, repeats both the canonical capture and the
 bounded `strace` observation.
 This is routed control-flow and side-effect evidence. It is not a live-provider
@@ -228,9 +231,9 @@ The evidence recorder makes the visuals reviewable rather than decorative:
 
 - it materializes a private snapshot from committed Git blobs and runs that
   snapshot with `python -I -S -B`;
-- it binds ten capture-relevant committed paths—the lab/engine modules,
-  recorder, package initializers, and project metadata—by Git mode, blob ID,
-  SHA-256, and byte count;
+- it binds twelve capture-relevant committed paths—the lab/engine modules,
+  recorder, package initializers, project metadata, lock, and lock
+  provenance—by Git mode, blob ID, SHA-256, and byte count;
 - it records zero observed communication syscalls in one Linux `strace` run
   over an explicit syscall set; this is an observation, not network isolation;
 - it checks exact file sets, hashes, media types, JSON structure, explicit
@@ -269,8 +272,8 @@ See the [evidence protocol and boundaries](docs/evidence.md) and the
 | Background `AgentLoop.run()`, config loader wiring, refinement, memory consolidation, gateway, and Telegram paths | Adversarially unit-tested in the full suite; outside the current receipts |
 | Live K2 provider behavior | Not captured |
 | Answer quality, token cost, throughput, or latency | Not benchmarked |
-| Hosted clean-runner CI | Full offline pytest suite, hardened-boundary Ruff checks, and a fresh MCP evidence capture/check run on the committed evidence branch |
-| Locked application dependency environment | Not yet available |
+| Hosted clean-runner CI | 424-test offline suite, hardened-boundary Ruff checks, fresh MCP capture, and read-only verification of all three visual bundles |
+| Locked application dependency environment | Ubuntu 24.04 + CPython 3.12.13; 96 exact requirements, 2,082 SHA-256 hashes, and source-bound lock provenance |
 
 ## Optional live K2 setup
 
@@ -320,6 +323,8 @@ as portfolio evidence yet.
 ## Repository map
 
 ```text
+requirements-ci-py312.lock             # 96 exact CPython 3.12 CI requirements
+requirements-ci-py312.provenance.json   # generator, inputs, runtime, and lock digest
 k2do/
   agent/
     router.py                  # deterministic query classification
@@ -345,10 +350,10 @@ docs/
 tests/                         # unit and adversarial evidence tests
 ```
 
-The next evidence milestones are a locked application dependency set with CI,
-config-loader evidence, deterministic refinement and memory traces, and an
-opt-in sanitized live-provider capture. They are tracked as
-remaining work, not described as completed features.
+The next evidence milestones are config-loader evidence, deterministic
+refinement and memory traces, an explicit upstream-diff ledger, and an opt-in
+sanitized live-provider capture. They remain tracked work, not completed
+claims.
 
 ## License and attribution
 

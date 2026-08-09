@@ -60,8 +60,8 @@ These are code-presence statements, not quality or originality claims. Each
 area still requires a reviewed diff against the reconstructed upstream
 baseline before it is treated as an originality claim.
 
-Two deterministic offline labs now supply narrower behavioral evidence. The
-direct-engine receipt covers the default query router, selected thinker
+Three deterministic offline labs now supply narrower behavioral evidence.
+The direct-engine receipt covers the default query router, selected thinker
 concurrency, model fallback, categorical timeout, Judge gating and degradation,
 caller cancellation, and zero-active cleanup. The routed-handoff receipt calls
 the adapted generic `AgentLoop._process_message` path and real message queues,
@@ -69,14 +69,16 @@ then verifies K2DO routing and DeepThink/Judge behavior followed by registered
 workspace-restricted file tools and disk-backed session persistence. Their
 strict scripted providers, canonical receipts, source-bound manifests,
 transcripts, and generated visuals are documented in
-[the evidence protocol](evidence.md).
+[the evidence protocol](evidence.md). A third receipt drives the production
+MCP client against strict stdio subprocesses and covers discovery, catalog
+isolation, protocol errors, repeated cancellation, cleanup, and restart.
 
 These receipts prove integration behavior, not original authorship of the
 generic runtime. The routed lab deliberately invokes `_process_message`
 directly and publishes the returned outbound message itself. Background
-`AgentLoop.run()`, channel dispatch, configuration-file wiring, MCP lifecycle,
-refinement, memory consolidation, live providers, gateway, and Telegram remain
-outside the receipt boundary. Unit tests for some of those paths do not expand
+`AgentLoop.run()`, channel dispatch, configuration-file wiring, refinement,
+memory consolidation, live providers, gateway, and Telegram remain outside the
+receipt boundary. Unit tests for some of those paths do not expand
 that boundary.
 
 ## Removed generated audit dump
@@ -99,12 +101,15 @@ Completed:
    strict execution contract covering all eleven registered tool schemas.
 4. Captured stdout and receipt-derived SVG, PNG, and GIF evidence are bound to
    committed source blobs and checked by deterministic renderers.
+5. Ubuntu 24.04 / CPython 3.12.13 CI installs 96 exact requirements under 2,082
+   SHA-256 hashes and binds the lock to its generator inputs and provenance.
+6. A real-subprocess MCP receipt covers lifecycle failures and recovery while
+   its workflow publishes artifacts with read-only repository permissions.
 
 Remaining:
 
-1. Pin a reproducible Python dependency set and publish CI.
-2. Add source-bound receipts for background AgentLoop/config/MCP lifecycle,
+1. Add source-bound receipts for background AgentLoop/config wiring,
    refinement, and memory consolidation.
-3. Add an opt-in sanitized live-provider capture without publishing prompts,
+2. Add an opt-in sanitized live-provider capture without publishing prompts,
    responses, credentials, endpoints, or personal data.
-4. Maintain an explicit upstream-diff ledger for every retained generic module.
+3. Maintain an explicit upstream-diff ledger for every retained generic module.

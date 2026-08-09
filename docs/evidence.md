@@ -24,8 +24,9 @@ generated output.
 
 The routed receipt SHA-256 is
 `12b6c89a40bf2ca4f775a9ffa0c68b0525cde3f853dd4cf089ebb5e333f91db8`.
-The manifest binds `pyproject.toml`, `requirements-evidence.txt`, and all
-committed blobs under `k2do/`: 67 paths for the current capture.
+The manifest binds all committed blobs under `k2do/`, project and renderer
+inputs, plus `requirements-ci-py312.lock` and its provenance: 72 paths for
+the current capture.
 
 ### Direct DeepThink fault paths
 
@@ -42,8 +43,20 @@ committed blobs under `k2do/`: 67 paths for the current capture.
 
 The direct-engine receipt SHA-256 is
 `f66e1db30dd79d77318a20ae86a0aa450a663e8f5cdff351557ca6fd1d0da80d`.
-Its manifest binds the ten explicitly selected source blobs that define that
-capture. It does not claim to inventory every tracked repository file.
+Its manifest binds twelve explicitly selected source blobs, including the
+CPython 3.12 lock and its provenance. It does not claim to inventory every
+tracked repository file.
+
+### Production MCP fault lifecycle
+
+`docs/mcp-fault-evidence/` contains a canonical receipt and byte-exact CLI
+transcript, a real 1600×3918 terminal PNG, four source-derived SVG views, a
+six-frame GIF replay, and a manifest. The receipt SHA-256 is
+`e69543846b4563901637ec7d8a35035a5efad00eda0f6c3e7d36480fe152346c`.
+Its 12 source bindings cover the read-only workflows, production MCP client,
+strict stdio fixtures, recorder, and focused tests. The lab starts ten real
+subprocess generations and verifies discovery, protocol failure, repeated
+cancellation, cleanup, and same-loop recovery without credentials.
 
 The source commit in each manifest produced its bundle. Each bundle is
 published in a later commit so its capture starts from a clean source commit.
@@ -53,11 +66,13 @@ published in a later commit so its capture starts from a clean source commit.
 Run these commands from a clone of this repository:
 
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e '.[dev]'
-python -m pip install -r requirements-evidence.txt
+python -m pip install --require-hashes -r requirements-ci-py312.lock
+python -m pip install --no-build-isolation --no-deps -e .
 
+python -m k2do.labs.mcp_fault_lab
+python -m k2do.labs.mcp_evidence_recorder check --fresh
 python -m k2do.labs.agent_handoff_trace
 python -m k2do.labs.handoff_evidence_recorder check
 python -m k2do.labs.deepthink_trace
@@ -65,9 +80,11 @@ python -m k2do.labs.trace_evidence_recorder check
 python -m pytest -q
 ```
 
-`requirements-evidence.txt` is a repository capture dependency, not a
-promise that it is included in a built source distribution. The commands above
-therefore intentionally start from a clone.
+`requirements-ci-py312.lock` is the reviewed Ubuntu 24.04 / CPython 3.12
+evidence environment; its provenance records the exact generator, inputs, and
+digest. `requirements-evidence.txt` remains one compiler input and is not
+promised as part of a built source distribution, so verification intentionally
+starts from a clone.
 
 Neither `check` command alters tracked files or a published bundle. During
 verification it may create and remove transient private snapshots and fixture
@@ -144,9 +161,11 @@ Pillow, FreeType, and zlib runtime. They are reproducible evidence renderings,
 not photographs of a terminal or live screen recordings. GIF frame delays are
 illustrative and make no timing claim.
 
-Pillow `12.3.0` is exactly pinned for the raster renderer. Application
-dependencies still use lower bounds and the repository has no lockfile, so the
-project does not yet claim a byte-for-byte reproducible package environment.
+The hosted evidence path fixes CPython 3.12.13 and installs 96 exact
+requirements under 2,082 SHA-256 hashes; Pillow `12.3.0` is part of that
+lock. This is a hash-verified dependency contract for the named runner and
+runtime, not a claim that operating-system images or arbitrary Python targets
+are byte-for-byte identical.
 
 ## Maintainer replacement protocol
 
@@ -168,9 +187,14 @@ Generated bundle files must never be hand-edited.
 
    PYTHONDONTWRITEBYTECODE=1 \
      python -m k2do.labs.trace_evidence_recorder record
+
+   PYTHONDONTWRITEBYTECODE=1 \
+     python -m k2do.labs.mcp_evidence_recorder record --replace
    ```
 
-   Run only the command for each bundle being replaced.
+   Run only the command for each bundle being replaced. The handoff and direct
+   recorders require an absent destination; the MCP recorder performs an
+   atomic replacement in its clean checkout.
 
 7. Do not run `record` twice for the same source commit. Run the verification
    checker, inspect every visual at rendered size, and scan all public bytes
@@ -179,9 +203,10 @@ Generated bundle files must never be hand-edited.
    commit a new clean source state, and capture from that commit.
 9. Commit only the reviewed generated bundle as a separate evidence commit.
 
-The recorders use private committed-`HEAD` snapshots, bounded process output,
-process-group cleanup, descriptor-relative no-follow reads, exclusive writes,
-`fsync`, and atomic no-replace publication. Adversarial tests cover source
+The handoff and direct recorders use private committed-`HEAD` snapshots,
+bounded process output, process-group cleanup, descriptor-relative no-follow
+reads, exclusive writes, `fsync`, and atomic no-replace publication. The MCP
+recorder uses an atomic backup-and-replace boundary in its read-only workflow. Adversarial tests cover source
 mutation, dirty trees, divergent histories with identical blobs, hostile
 output leaves, symlinks and FIFOs, publish races, output overflow, timeouts,
 duplicate keys, artifact tampering, extra files, and renderer determinism.
