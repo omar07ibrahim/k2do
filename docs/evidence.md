@@ -169,40 +169,60 @@ are byte-for-byte identical.
 
 ## Maintainer replacement protocol
 
-Generated bundle files must never be hand-edited.
+Generated bundle files must never be hand-edited. Source changes and evidence
+adoption remain separate reviewable commits.
 
-1. Change production code, lab, recorder, tests, or capture dependencies.
-2. Identify every bundle whose source binding or renderer/runtime contract is
-   affected.
-3. Remove each affected generated bundle and commit the source change and
-   bundle removal.
-4. Run focused tests and the full suite.
-5. Confirm that `HEAD` is committed, the worktree is clean, and the affected
-   output directory is absent.
-6. Run exactly one appropriate production capture:
+### Hosted refresh (preferred)
 
-   ```bash
-   PYTHONDONTWRITEBYTECODE=1 \
-     python -m k2do.labs.handoff_evidence_recorder record
+1. Commit the production, lab, recorder, test, or dependency change. Leave the
+   currently adopted bundle in place.
+2. In **Actions → Verify reproducible evidence → Run workflow**, select the
+   exact source branch and set `refresh` to `true`.
+3. Each matrix job creates a deterministic private Git commit from that exact
+   revision with both generated bundle directories absent. It records and
+   verifies one bundle from the clean commit without credentials or repository
+   write permission.
+4. The job copies the candidate into the original checkout and verifies it
+   again after the private commit and tree are unavailable there. This proves
+   that the recorded source inventory, not ancestry, is the squash-safe
+   authority.
+5. The workflow rejects changes outside the selected bundle, emits a bounded
+   candidate manifest, and uploads the exact bundle under a name containing
+   the source SHA, run ID, and run attempt.
+6. Download the artifact, run the checker, compare every hash and byte count,
+   inspect every PNG, GIF, SVG, receipt, and transcript at rendered size, and
+   scan all public bytes for secrets or personal data.
+7. If every non-manifest artifact identity is unchanged, adopt only the new
+   source-bound manifest. If any artifact changed, adopt the exact reviewed
+   candidate bytes as a complete bundle; never reconstruct them by hand.
+8. Run the same workflow with `refresh` set to `false` on the adoption commit.
+   Both matrix jobs must verify the committed bundles without mutating the
+   checkout before merge.
 
-   PYTHONDONTWRITEBYTECODE=1 \
-     python -m k2do.labs.trace_evidence_recorder record
+The hosted workflow only produces review candidates. It cannot push, commit,
+or replace GitHub content.
 
-   PYTHONDONTWRITEBYTECODE=1 \
-     python -m k2do.labs.mcp_evidence_recorder record --replace
-   ```
+### Local one-shot capture
 
-   Run only the command for each bundle being replaced. The handoff and direct
-   recorders require an absent destination; the MCP recorder performs an
-   atomic replacement in its clean checkout.
+A maintainer may instead prepare a clean committed clone whose affected output
+directory is absent, install the hash-locked CPython 3.12 environment, and run
+exactly one matching recorder followed by its checker:
 
-7. Do not run `record` twice for the same source commit. Run the verification
-   checker, inspect every visual at rendered size, and scan all public bytes
-   for secrets or personal data.
-8. If a visual is defective, discard the unpublished bundle, fix the renderer,
-   commit a new clean source state, and capture from that commit.
-9. Commit only the reviewed generated bundle as a separate evidence commit.
+```bash
+PYTHONDONTWRITEBYTECODE=1 \
+  python -m k2do.labs.handoff_evidence_recorder record
+PYTHONDONTWRITEBYTECODE=1 \
+  python -m k2do.labs.handoff_evidence_recorder check
 
+PYTHONDONTWRITEBYTECODE=1 \
+  python -m k2do.labs.trace_evidence_recorder record
+PYTHONDONTWRITEBYTECODE=1 \
+  python -m k2do.labs.trace_evidence_recorder check
+```
+
+The handoff and direct recorders are deliberately one-shot and require an
+absent destination. If review finds a defect, discard the unpublished
+candidate, fix the source, commit a new clean state, and capture again.
 The handoff and direct recorders use private committed-`HEAD` snapshots,
 bounded process output, process-group cleanup, descriptor-relative no-follow
 reads, exclusive writes, `fsync`, and atomic no-replace publication. The MCP
