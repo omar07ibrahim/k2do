@@ -95,7 +95,7 @@
   },
   "schema": "k2do.handoff-evidence-manifest/v1",
   "source": {
-    "commit": "165b7c1ca834166ac40b8293681544f980482daf",
+    "commit": "3de91e87585bf45bf5e1302cb4dadc0720aa01e6",
     "files": {
       "k2do/__init__.py": {
         "bytes": 137,
@@ -224,10 +224,10 @@
         "sha256": "6685853dd1fd2a074548c06312764841a2ffa752739656b342102ff88934efc3"
       },
       "k2do/agent/tools/web.py": {
-        "bytes": 6374,
-        "git_blob": "b50e1dde39ea889ea134431711f847cf3da4eca3",
+        "bytes": 7428,
+        "git_blob": "6071ff8db4bf1add09bdc6905caf1b1a86197650",
         "git_mode": "100644",
-        "sha256": "98cf8f280ac268680654ce27ce804516fd5000b039db16af158a0de11f0782ae"
+        "sha256": "5f060301df53548241728ac934350c2be8456c070d6e0e84f2a42638b4fc2c7d"
       },
       "k2do/bus/__init__.py": {
         "bytes": 230,
@@ -357,9 +357,9 @@
       },
       "k2do/labs/handoff_evidence_recorder.py": {
         "bytes": 44638,
-        "git_blob": "a56f6eabef8eea9aa7a0bf243637205bfbad2eeb",
+        "git_blob": "0d444a110eb7088a8cf851f822a0d1c39c2a0f4e",
         "git_mode": "100644",
-        "sha256": "801858811550ae5bae11d97cafb97c62f57c8d549fe1feeb0cec98732b20280d"
+        "sha256": "438b31d9638fdb6575ee6e6f7204561a8ceb381659fdc04d1386d83237ff11a2"
       },
       "k2do/labs/mcp_evidence_recorder.py": {
         "bytes": 26503,
@@ -381,9 +381,9 @@
       },
       "k2do/labs/trace_evidence_recorder.py": {
         "bytes": 69917,
-        "git_blob": "3d5cb14d466413fc03645f72417233d7d91965d5",
+        "git_blob": "d70e67af38a39e5dfd59b09f16c1c82531808ca4",
         "git_mode": "100644",
-        "sha256": "e93236152ff24ebc546e27c28f3c3fcb830d511bdd328dfe79b0f0c1d5589f4a"
+        "sha256": "f5a591f937cafa5c39281e36624cf893795c7c67cdf323954021e010d8bdc448"
       },
       "k2do/providers/__init__.py": {
         "bytes": 139,
@@ -530,7 +530,7 @@
         "sha256": "41b54a6fb2918667ca47a61d73b522629d84490f3d78f0f20b21135faba10d35"
       }
     },
-    "tree": "1d5ce1f1da7eac7a81113b6a08793a372d04690c",
+    "tree": "882b725e56b4f31628c6017f971a233e6bd11fdc",
     "verification": "all current committed k2do package blobs plus pyproject.toml, requirements-evidence.txt, requirements-ci-py312.lock, and its provenance; content identity required, no ancestry requirement"
   }
 }

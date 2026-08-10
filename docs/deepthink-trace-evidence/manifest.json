@@ -75,7 +75,7 @@
   },
   "schema": "k2do.trace-evidence-manifest/v1",
   "source": {
-    "commit": "165b7c1ca834166ac40b8293681544f980482daf",
+    "commit": "3de91e87585bf45bf5e1302cb4dadc0720aa01e6",
     "files": {
       "k2do/__init__.py": {
         "bytes": 137,
@@ -115,9 +115,9 @@
       },
       "k2do/labs/trace_evidence_recorder.py": {
         "bytes": 69917,
-        "git_blob": "3d5cb14d466413fc03645f72417233d7d91965d5",
+        "git_blob": "d70e67af38a39e5dfd59b09f16c1c82531808ca4",
         "git_mode": "100644",
-        "sha256": "e93236152ff24ebc546e27c28f3c3fcb830d511bdd328dfe79b0f0c1d5589f4a"
+        "sha256": "f5a591f937cafa5c39281e36624cf893795c7c67cdf323954021e010d8bdc448"
       },
       "k2do/providers/__init__.py": {
         "bytes": 139,
@@ -150,7 +150,7 @@
         "sha256": "d9e830155c03c3d63c35dde706ab133bb4dbfed73943965618cd07031e30ede5"
       }
     },
-    "tree": "1d5ce1f1da7eac7a81113b6a08793a372d04690c",
+    "tree": "882b725e56b4f31628c6017f971a233e6bd11fdc",
     "verification": "current committed blob identities and content hashes; no ancestry requirement"
   }
 }
