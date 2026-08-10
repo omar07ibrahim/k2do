@@ -254,13 +254,13 @@ def test_atomic_publication_writes_exact_regular_files(tmp_path: Path) -> None:
         observed.append(stage_name)
         stage = tmp_path / "docs" / stage_name
         assert {path.name for path in stage.iterdir()} == set(files)
+        assert {path.stat().st_mode & 0o777 for path in stage.iterdir()} == {0o600}
 
     recorder._publish_artifacts(tmp_path, files, pre_publish=inspect_stage)
     destination = tmp_path / "docs" / recorder._OUTPUT_DIRECTORY
     assert observed and destination.is_dir()
     assert {path.name: path.read_bytes() for path in destination.iterdir()} == files
-    assert all(path.stat().st_mode & 0o111 == 0 for path in destination.iterdir())
-
+    assert {path.stat().st_mode & 0o777 for path in destination.iterdir()} == {0o600}
 
 def test_atomic_publication_refuses_an_existing_destination(tmp_path: Path) -> None:
     destination = tmp_path / "docs" / recorder._OUTPUT_DIRECTORY

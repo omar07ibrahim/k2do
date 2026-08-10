@@ -524,7 +524,7 @@ def _committed_snapshot(repository: Path, head: str) -> Iterator[Path]:
                     flags |= os.O_CLOEXEC
                 if hasattr(os, "O_NOFOLLOW"):
                     flags |= os.O_NOFOLLOW
-                file_mode = 0o755 if git_mode == "100755" else 0o644
+                file_mode = 0o700 if git_mode == "100755" else 0o600
                 try:
                     file_fd = os.open(
                         parts[-1],
@@ -1398,14 +1398,14 @@ def _publish_artifacts(
                 flags |= os.O_CLOEXEC
             if hasattr(os, "O_NOFOLLOW"):
                 flags |= os.O_NOFOLLOW
-            file_fd = os.open(name, flags, 0o644, dir_fd=stage_fd)
+            file_fd = os.open(name, flags, 0o600, dir_fd=stage_fd)
             try:
                 file_metadata = os.fstat(file_fd)
                 written_files[name] = (
                     file_metadata.st_dev,
                     file_metadata.st_ino,
                 )
-                os.fchmod(file_fd, 0o644)
+                os.fchmod(file_fd, 0o600)
                 _write_all(file_fd, files[name])
                 os.fsync(file_fd)
             finally:

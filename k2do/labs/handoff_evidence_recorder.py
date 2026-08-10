@@ -890,9 +890,9 @@ def _publish_artifacts(
                 | getattr(os, "O_CLOEXEC", 0)
                 | getattr(os, "O_NOFOLLOW", 0)
             )
-            file_fd = os.open(name, file_flags, 0o644, dir_fd=stage_fd)
+            file_fd = os.open(name, file_flags, 0o600, dir_fd=stage_fd)
             try:
-                os.fchmod(file_fd, 0o644)
+                os.fchmod(file_fd, 0o600)
                 evidence_core._write_all(file_fd, files[name])
                 os.fsync(file_fd)
             finally:

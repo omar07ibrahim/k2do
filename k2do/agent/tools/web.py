@@ -1,6 +1,7 @@
 """Web tools: web_search and web_fetch."""
 
 import html
+from html.parser import HTMLParser
 import json
 import os
 import re
@@ -16,13 +17,50 @@ USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36"
 MAX_REDIRECTS = 5  # Limit redirects to prevent DoS attacks
 
 
-def _strip_tags(text: str) -> str:
-    """Remove HTML tags and decode entities."""
-    text = re.sub(r'<script[\s\S]*?</script>', '', text, flags=re.I)
-    text = re.sub(r'<style[\s\S]*?</style>', '', text, flags=re.I)
-    text = re.sub(r'<[^>]+>', '', text)
-    return html.unescape(text).strip()
+_BLOCKED_HTML_CONTENT = {"script", "style"}
 
+
+class _VisibleTextExtractor(HTMLParser):
+    """Collect text while suppressing active and styling element contents."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self._blocked_depth = 0
+        self._chunks: list[str] = []
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        del attrs
+        if tag.lower() in _BLOCKED_HTML_CONTENT:
+            self._blocked_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in _BLOCKED_HTML_CONTENT and self._blocked_depth:
+            self._blocked_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self._blocked_depth:
+            self._chunks.append(data)
+
+    def handle_entityref(self, name: str) -> None:
+        self.handle_data(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        self.handle_data(f"&#{name};")
+
+    def visible_text(self) -> str:
+        return html.unescape("".join(self._chunks)).strip()
+
+
+def _strip_tags(text: str) -> str:
+    """Extract visible text and decode entities without regex tag parsing."""
+    parser = _VisibleTextExtractor()
+    parser.feed(text)
+    parser.close()
+    return parser.visible_text()
 
 def _normalize(text: str) -> str:
     """Normalize whitespace."""

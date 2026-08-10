@@ -412,6 +412,58 @@ def test_duplicate_manifest_keys_are_rejected() -> None:
         recorder._strict_manifest(duplicate)
 
 
+def test_committed_snapshot_and_publication_files_are_owner_only() -> None:
+    for repository in _temporary_directory():
+        package = repository / "k2do"
+        package.mkdir()
+        (package / "regular.py").write_text("VALUE = 1\n", encoding="utf-8")
+        executable = package / "tool.py"
+        executable.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        executable.chmod(0o755)
+        _initialize_repository(repository)
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            env=_git_environment(),
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+        with recorder._committed_snapshot(repository, head) as snapshot:
+            modes = {
+                path.relative_to(snapshot).as_posix(): path.stat().st_mode & 0o777
+                for path in snapshot.rglob("*")
+                if path.is_file()
+            }
+            assert modes == {"k2do/regular.py": 0o600, "k2do/tool.py": 0o700}
+
+    for repository in _temporary_directory():
+        (repository / "docs").mkdir()
+        bundle = {
+            name: f"{name}\n".encode()
+            for name in {*recorder._ARTIFACT_MEDIA_TYPES, "manifest.json"}
+        }
+        observed_modes: list[set[int]] = []
+
+        def inspect_stage(stage_name: str) -> None:
+            stage = repository / "docs" / stage_name
+            observed_modes.append(
+                {path.stat().st_mode & 0o777 for path in stage.iterdir()}
+            )
+
+        recorder._publish_artifacts(
+            repository,
+            bundle,
+            pre_publish=inspect_stage,
+        )
+        assert observed_modes == [{0o600}]
+        destination = repository / "docs" / recorder._OUTPUT_DIRECTORY
+        assert {path.stat().st_mode & 0o777 for path in destination.iterdir()} == {
+            0o600
+        }
+
+
 def test_preexisting_collision_leaves_are_never_deleted(
     receipt_bytes: bytes,
     observation: dict,
