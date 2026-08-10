@@ -100,8 +100,27 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$REFRESH_BUNDLE" = "true" ]; then
+            candidate="$RUNNER_TEMP/evidence-refresh-${{ matrix.bundle.name }}"
+            git clone --quiet --no-hardlinks "$GITHUB_WORKSPACE" "$candidate"
+            rm -rf -- \
+              "$candidate/docs/agent-handoff-evidence" \
+              "$candidate/docs/deepthink-trace-evidence"
+            git -C "$candidate" add -A -- docs
+            source_date="$(git -C "$candidate" show -s --format=%aI HEAD)"
+            GIT_AUTHOR_NAME='Omar Ibrahim' \
+              GIT_AUTHOR_EMAIL='31526072+omar07ibrahim@users.noreply.github.com' \
+              GIT_AUTHOR_DATE="$source_date" \
+              GIT_COMMITTER_NAME='Omar Ibrahim' \
+              GIT_COMMITTER_EMAIL='31526072+omar07ibrahim@users.noreply.github.com' \
+              GIT_COMMITTER_DATE="$source_date" \
+              git -C "$candidate" commit --quiet --message 'Prepare reproducible evidence refresh'
+            (
+              cd "$candidate"
+              PYTHONPATH="$candidate" python -m ${{ matrix.bundle.module }} record
+              PYTHONPATH="$candidate" python -m ${{ matrix.bundle.module }} check
+            )
             rm -rf -- "docs/${{ matrix.bundle.name }}"
-            python -m ${{ matrix.bundle.module }} record
+            cp -a -- "$candidate/docs/${{ matrix.bundle.name }}" "docs/${{ matrix.bundle.name }}"
             python -m ${{ matrix.bundle.module }} check
           elif git cat-file -e "$GITHUB_SHA:docs/${{ matrix.bundle.name }}" 2>/dev/null; then
             python -m ${{ matrix.bundle.module }} check
