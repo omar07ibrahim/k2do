@@ -2,6 +2,12 @@ name: Verify reproducible evidence
 
 on:
   workflow_dispatch:
+    inputs:
+      refresh:
+        description: Rebuild both evidence bundles for independent review
+        required: true
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -88,10 +94,16 @@ jobs:
           python -m pip check
 
       - name: Reproduce a missing bundle or verify the committed bundle
+        env:
+          REFRESH_BUNDLE: ${{ inputs.refresh && 'true' || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
-          if git cat-file -e "$GITHUB_SHA:docs/${{ matrix.bundle.name }}" 2>/dev/null; then
+          if [ "$REFRESH_BUNDLE" = "true" ]; then
+            rm -rf -- "docs/${{ matrix.bundle.name }}"
+            python -m ${{ matrix.bundle.module }} record
+            python -m ${{ matrix.bundle.module }} check
+          elif git cat-file -e "$GITHUB_SHA:docs/${{ matrix.bundle.name }}" 2>/dev/null; then
             python -m ${{ matrix.bundle.module }} check
           else
             python -m ${{ matrix.bundle.module }} record
@@ -99,23 +111,39 @@ jobs:
           fi
 
       - name: Enforce the evidence mutation boundary
+        env:
+          REFRESH_BUNDLE: ${{ inputs.refresh && 'true' || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
           changed="$(git status --porcelain=v1 --untracked-files=all | cut -c4-)"
-          if git cat-file -e "$GITHUB_SHA:docs/${{ matrix.bundle.name }}" 2>/dev/null; then
-            test -z "$changed"
-          else
+          if [ "$REFRESH_BUNDLE" = "true" ] ||
+            ! git cat-file -e "$GITHUB_SHA:docs/${{ matrix.bundle.name }}" 2>/dev/null
+          then
             test -n "$changed"
             unexpected="$(printf '%s\n' "$changed" | grep -Ev '^docs/${{ matrix.bundle.name }}/' || true)"
             test -z "$unexpected"
+          else
+            test -z "$changed"
           fi
           test -z "$(find docs/${{ matrix.bundle.name }} -type l -print -quit)"
+
+      - name: Emit the bounded refresh manifest
+        if: ${{ inputs.refresh }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="docs/${{ matrix.bundle.name }}/manifest.json"
+          test -f "$manifest"
+          test "$(wc -c < "$manifest")" -le 262144
+          printf 'K2DO_MANIFEST_BEGIN %s\n' "${{ matrix.bundle.name }}"
+          base64 --wrap=0 "$manifest"
+          printf '\nK2DO_MANIFEST_END %s\n' "${{ matrix.bundle.name }}"
 
       - name: Upload the verified bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.bundle.name }}-${{ github.sha }}
+          name: ${{ matrix.bundle.name }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: docs/${{ matrix.bundle.name }}/
           if-no-files-found: error
           include-hidden-files: false
